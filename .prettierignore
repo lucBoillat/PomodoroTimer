@@ -1,0 +1,22 @@
+# Build output
+/dist
+/tmp
+/out-tsc
+/bazel-out
+/coverage
+
+# Dependencies
+/node_modules
+
+# Angular cache
+/.angular
+
+# Lockfiles
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Misc
+__screenshots__/
+*.min.js
+*.min.css
