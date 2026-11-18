@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const settingsSchema = z.object({
+export const settingsSchema = z.object({
   pomodoroMinutes: z.int().min(1).max(200).default(25),
   smallBreakMinutes: z.int().min(1).max(30).default(5),
   largeBreakMinutes: z.int().min(1).max(90).default(15),

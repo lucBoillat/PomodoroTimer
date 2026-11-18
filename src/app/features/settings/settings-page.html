@@ -1,1 +1,30 @@
-<p>settings-page works!</p>
+<form [formRoot]="settingsForm">
+  <mat-form-field>
+    <mat-label>Arbeitszeit (Minuten)</mat-label>
+    <input matInput type="number" [formField]="settingsForm.pomodoroMinutes" />
+    <mat-hint>1–200 Minuten</mat-hint>
+    @for (error of settingsForm.pomodoroMinutes().errors(); track $index) {
+      <mat-error>{{ error.message }}</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field>
+    <mat-label>Kurze Pause (Minuten)</mat-label>
+    <input matInput type="number" [formField]="settingsForm.smallBreakMinutes" />
+    <mat-hint>1–30 Minuten</mat-hint>
+    @for (error of settingsForm.smallBreakMinutes().errors(); track $index) {
+      <mat-error>{{ error.message }}</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field>
+    <mat-label>Lange Pause (Minuten)</mat-label>
+    <input matInput type="number" [formField]="settingsForm.largeBreakMinutes" />
+    <mat-hint>1–90 Minuten</mat-hint>
+    @for (error of settingsForm.largeBreakMinutes().errors(); track $index) {
+      <mat-error>{{ error.message }}</mat-error>
+    }
+  </mat-form-field>
+
+  <button mat-flat-button type="submit">Speichern</button>
+</form>
