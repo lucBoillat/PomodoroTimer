@@ -26,5 +26,8 @@
     }
   </mat-form-field>
 
-  <button mat-flat-button type="submit">Speichern</button>
+  @for (reason of settingsForm().disabledReasons(); track $index) {
+    <p class="locked-hint">{{ reason.message }}</p>
+  }
+  <button mat-flat-button type="submit" [disabled]="settingsForm().disabled()">Speichern</button>
 </form>

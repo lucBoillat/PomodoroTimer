@@ -7,6 +7,8 @@ import { MatInputHarness } from '@angular/material/input/testing';
 import { Settings, type SettingsProps } from '../../domain/settings';
 import { SettingsPage } from './settings-page';
 import { SettingsStore } from './settings-store';
+import type { TaskState } from '../../domain/task';
+import { TaskStore } from '../timer/task-store';
 
 const STORAGE_KEY = 'pomodoro.settings';
 const DEFAULTS: SettingsProps = {
@@ -21,15 +23,27 @@ const LABELS = {
   largeBreakMinutes: 'Lange Pause (Minuten)',
 } as const;
 type FieldName = keyof typeof LABELS;
+const FIELD_NAMES = Object.keys(LABELS) as FieldName[];
+
+const TASKS_KEY = 'pomodoro.tasks';
+const LOCKED_MESSAGE = 'Die Einstellungen sind gesperrt solange eine Aufgabe läuft.';
+
+/** Puts tasks with the given states into storage, so the TaskStore loads them. */
+function seedTasks(...states: TaskState[]): void {
+  const tasks = states.map((state, i) => ({ id: crypto.randomUUID(), title: `Task ${i}`, state }));
+  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+}
 
 describe('SettingsPage', () => {
   let loader: HarnessLoader;
   let store: SettingsStore;
+  let host: HTMLElement;
 
   /** Renders the page. Anything put in localStorage beforehand is what the store loads. */
   async function render(): Promise<void> {
     const fixture = TestBed.createComponent(SettingsPage);
     loader = TestbedHarnessEnvironment.loader(fixture);
+    host = fixture.nativeElement;
     store = TestBed.inject(SettingsStore);
     await fixture.whenStable();
   }
@@ -55,9 +69,25 @@ describe('SettingsPage', () => {
     return (await formField(name)).getTextErrors();
   }
 
+  function saveButton(): Promise<MatButtonHarness> {
+    return loader.getHarness(MatButtonHarness.with({ text: 'Speichern' }));
+  }
+
   async function submit(): Promise<void> {
-    const button = await loader.getHarness(MatButtonHarness.with({ text: 'Speichern' }));
-    await button.click();
+    await (await saveButton()).click();
+  }
+
+  async function disabledFields(): Promise<FieldName[]> {
+    const result: FieldName[] = [];
+    for (const name of FIELD_NAMES) {
+      if (await (await input(name)).isDisabled()) result.push(name);
+    }
+    return result;
+  }
+
+  /** The visible "why is this locked" text, or null when none is shown. */
+  function lockedHint(): string | null {
+    return host.querySelector('.locked-hint')?.textContent?.trim() ?? null;
   }
 
   beforeEach(() => {
@@ -88,7 +118,7 @@ describe('SettingsPage', () => {
     it('shows no errors before the user has done anything', async () => {
       await render();
 
-      for (const name of Object.keys(LABELS) as FieldName[]) {
+      for (const name of FIELD_NAMES) {
         expect(await errors(name)).toEqual([]);
       }
     });
@@ -183,6 +213,72 @@ describe('SettingsPage', () => {
       store.update(Settings.create({ pomodoroMinutes: 35 }));
 
       expect(await (await input('pomodoroMinutes')).getValue()).toBe('35');
+    });
+  });
+
+  describe('locking while a task is active', () => {
+    it.each<[string, TaskState]>([
+      ['running', { status: 'running', endsAt: Date.now() + 60_000 }],
+      ['overdue', { status: 'running', endsAt: Date.now() - 60_000 }],
+      ['paused', { status: 'paused', remainingMs: 60_000 }],
+    ])('disables all fields and the button when a task is %s', async (_label, state) => {
+      seedTasks({ status: 'pending' }, state);
+      await render();
+
+      expect(await disabledFields()).toEqual(FIELD_NAMES);
+      expect(await (await saveButton()).isDisabled()).toBe(true);
+    });
+
+    it('explains why the settings are locked', async () => {
+      seedTasks({ status: 'running', endsAt: Date.now() + 60_000 });
+      await render();
+
+      expect(lockedHint()).toBe(LOCKED_MESSAGE);
+    });
+
+    it('stays editable when tasks are only pending or done', async () => {
+      seedTasks({ status: 'pending' }, { status: 'done' });
+      await render();
+
+      expect(await disabledFields()).toEqual([]);
+      expect(await (await saveButton()).isDisabled()).toBe(false);
+      expect(lockedHint()).toBeNull();
+    });
+
+    it('locks as soon as a task is started while the page is open', async () => {
+      seedTasks({ status: 'pending' });
+      await render();
+      const taskStore = TestBed.inject(TaskStore);
+
+      taskStore.start(taskStore.tasks()[0].id);
+
+      expect(await disabledFields()).toEqual(FIELD_NAMES);
+      expect(await (await saveButton()).isDisabled()).toBe(true);
+      expect(lockedHint()).toBe(LOCKED_MESSAGE);
+    });
+
+    it('unlocks again once the active task is completed', async () => {
+      seedTasks({ status: 'running', endsAt: Date.now() + 60_000 });
+      await render();
+      const taskStore = TestBed.inject(TaskStore);
+
+      taskStore.complete(taskStore.tasks()[0].id);
+
+      expect(await disabledFields()).toEqual([]);
+      expect(await (await saveButton()).isDisabled()).toBe(false);
+      expect(lockedHint()).toBeNull();
+    });
+
+    it('can save again after unlocking', async () => {
+      seedTasks({ status: 'paused', remainingMs: 60_000 });
+      await render();
+      const taskStore = TestBed.inject(TaskStore);
+      taskStore.complete(taskStore.tasks()[0].id);
+
+      await type('pomodoroMinutes', '40');
+      await submit();
+
+      expect(store.settings().pomodoroMinutes).toBe(40);
     });
   });
 });
