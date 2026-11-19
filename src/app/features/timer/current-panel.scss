@@ -1,0 +1,43 @@
+:host {
+  display: block;
+  margin-bottom: 24px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 16px;
+  border-radius: var(--mat-sys-corner-large);
+  background: var(--mat-sys-surface-container);
+  text-align: center;
+}
+
+.kicker {
+  margin: 0;
+  font: var(--mat-sys-label-large);
+  color: var(--mat-sys-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.title {
+  max-width: 100%;
+  margin: 0;
+  font: var(--mat-sys-headline-small);
+  overflow-wrap: anywhere; // 40 characters without spaces must not overflow on phones
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.empty {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+}

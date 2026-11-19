@@ -218,4 +218,115 @@ describe('TimerPage', () => {
       expect(await (await buttonIn('Waiting', 'Starten')).isDisabled()).toBe(false);
     });
   });
+
+  describe('current panel', () => {
+    /** A button in the panel, found by its visible text (the icon ligature comes first). */
+    async function panelButton(label: string): Promise<MatButtonHarness> {
+      return loader.getHarness(
+        MatButtonHarness.with({ ancestor: 'app-current-panel', text: new RegExp(`${label}$`) }),
+      );
+    }
+
+    function panelTitle(): string | undefined {
+      return host.querySelector('app-current-panel .title')?.textContent?.trim();
+    }
+
+    it('shows that nothing is active', async () => {
+      seedTasks(['A']);
+      await render();
+
+      expect(host.querySelector('app-current-panel')?.textContent).toContain(
+        'Keine aktive Aufgabe',
+      );
+    });
+
+    it('shows a task once it is started from the list', async () => {
+      seedTasks(['A']);
+      await render();
+
+      await (await buttonIn('A', 'Starten')).click();
+
+      expect(panelTitle()).toBe('A');
+    });
+
+    it('pauses the active task', async () => {
+      seedTasks(['A', { status: 'running', endsAt: Date.now() + MINUTE }]);
+      await render();
+
+      await (await panelButton('Pausieren')).click();
+
+      expect(taskStore.tasks()[0].isPaused()).toBe(true);
+      expect(shownStatusOf('A')).toBe('Pausiert');
+      expect(await panelButton('Fortsetzen')).toBeTruthy();
+    });
+
+    it('resumes the paused task', async () => {
+      seedTasks(['A', { status: 'paused', remainingMs: MINUTE }]);
+      await render();
+
+      await (await panelButton('Fortsetzen')).click();
+
+      expect(taskStore.tasks()[0].isRunning()).toBe(true);
+      expect(shownStatusOf('A')).toBe('Läuft');
+    });
+
+    it.each<[string, TaskState]>([
+      ['running', { status: 'running', endsAt: Date.now() + MINUTE }],
+      ['paused', { status: 'paused', remainingMs: MINUTE }],
+    ])('completes a %s task and starts a break', async (_label, state) => {
+      seedTasks(['A', state]);
+      await render();
+
+      await (await panelButton('Erledigt')).click();
+
+      expect(taskStore.tasks()[0].isDone()).toBe(true);
+      expect(shownStatusOf('A')).toBe('Erledigt');
+      expect(TestBed.inject(BreakStore).currentBreak()).not.toBeNull();
+      expect(panelTitle()).toBe('Kurze Pause');
+    });
+
+    it('only acts on the active task, not on the others', async () => {
+      seedTasks(['Waiting'], ['Active', { status: 'running', endsAt: Date.now() + MINUTE }]);
+      await render();
+
+      await (await panelButton('Erledigt')).click();
+
+      expect(shownStatusOf('Active')).toBe('Erledigt');
+      expect(shownStatusOf('Waiting')).toBe('Wartend');
+    });
+
+    it('ends the break and unblocks starting', async () => {
+      seedTasks(['Waiting']);
+      localStorage.setItem(
+        BREAK_KEY,
+        JSON.stringify({ kind: 'long', endsAt: Date.now() + MINUTE }),
+      );
+      await render();
+      expect(panelTitle()).toBe('Lange Pause');
+
+      await (await panelButton('Pause beenden')).click();
+
+      expect(TestBed.inject(BreakStore).currentBreak()).toBeNull();
+      expect(host.querySelector('app-current-panel')?.textContent).toContain(
+        'Keine aktive Aufgabe',
+      );
+      expect(await (await buttonIn('Waiting', 'Starten')).isDisabled()).toBe(false);
+    });
+
+    it('runs a full cycle: start → pause → resume → complete → end break', async () => {
+      seedTasks(['A'], ['B']);
+      await render();
+
+      await (await buttonIn('A', 'Starten')).click();
+      await (await panelButton('Pausieren')).click();
+      await (await panelButton('Fortsetzen')).click();
+      await (await panelButton('Erledigt')).click();
+      expect(await (await buttonIn('B', 'Starten')).isDisabled()).toBe(true); // break
+
+      await (await panelButton('Pause beenden')).click();
+
+      expect(shownStatusOf('A')).toBe('Erledigt');
+      expect(await (await buttonIn('B', 'Starten')).isDisabled()).toBe(false);
+    });
+  });
 });

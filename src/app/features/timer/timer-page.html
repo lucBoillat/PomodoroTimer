@@ -1,3 +1,11 @@
+<app-current-panel
+  [task]="taskStore.activeTask()"
+  [activeBreak]="breakStore.currentBreak()"
+  (pauseTask)="pauseActive()"
+  (resumeTask)="resumeActive()"
+  (complete)="completeActive()"
+  (endBreak)="breakStore.end()"
+/>
 <app-task-form (added)="taskStore.add($event)" />
 @for (task of taskStore.tasks(); track task.id) {
   <app-task-item

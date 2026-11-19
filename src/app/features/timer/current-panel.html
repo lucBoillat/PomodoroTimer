@@ -1,0 +1,36 @@
+<section class="panel" aria-live="polite">
+  @if (task(); as task) {
+    <p class="kicker">{{ task.isPaused() ? 'Pausiert' : 'Läuft' }}</p>
+    <h2 class="title">{{ task.title }}</h2>
+
+    <div class="actions">
+      @if (task.isPaused()) {
+        <button mat-flat-button type="button" (click)="resumeTask.emit()">
+          <mat-icon>play_arrow</mat-icon>
+          Fortsetzen
+        </button>
+      } @else {
+        <button mat-stroked-button type="button" (click)="pauseTask.emit()">
+          <mat-icon>pause</mat-icon>
+          Pausieren
+        </button>
+      }
+      <button mat-flat-button type="button" (click)="complete.emit()">
+        <mat-icon>check</mat-icon>
+        Erledigt
+      </button>
+    </div>
+  } @else if (activeBreak(); as currentBreak) {
+    <p class="kicker">Pause</p>
+    <h2 class="title">{{ breakLabels[currentBreak.kind] }}</h2>
+
+    <div class="actions">
+      <button mat-stroked-button type="button" (click)="endBreak.emit()">
+        <mat-icon>skip_next</mat-icon>
+        Pause beenden
+      </button>
+    </div>
+  } @else {
+    <p class="empty">Keine aktive Aufgabe</p>
+  }
+</section>
