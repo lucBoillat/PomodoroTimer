@@ -1,4 +1,5 @@
 import { computed, effect, inject, Injectable, signal } from '@angular/core';
+import { EventBus } from '../../core/event-bus';
 import { InvalidTransitionError, Task } from '../../domain/task';
 import { SettingsStore } from '../settings/settings-store';
 import { BreakStore } from './break-store';
@@ -9,6 +10,7 @@ const STORAGE_KEY = 'pomodoro.tasks';
 export class TaskStore {
   private readonly settingsStore = inject(SettingsStore);
   private readonly breakStore = inject(BreakStore);
+  private readonly events = inject(EventBus);
   private readonly state = signal<readonly Task[]>(this.loadTasks());
   readonly tasks = this.state.asReadonly();
   readonly activeTask = computed(
@@ -20,7 +22,9 @@ export class TaskStore {
   }
 
   add(title: string): void {
-    this.state.update((oldTasks) => [...oldTasks, Task.create({ title })]);
+    const task = Task.create({ title });
+    this.state.update((oldTasks) => [...oldTasks, task]);
+    this.events.emit({ type: 'task-added', title: task.title });
   }
 
   delete(id: string): void {
@@ -28,12 +32,18 @@ export class TaskStore {
     if (!task) return;
     if (!task.canDelete()) throw new InvalidTransitionError('delete', task.state.status);
     this.state.update((tasks) => tasks.filter((t) => t.id !== id));
+    this.events.emit({ type: 'task-deleted', title: task.title });
   }
 
   edit(id: string, title: string): void {
-    this.state.update((oldTasks) =>
-      oldTasks.map((task) => (task.id === id ? task.edit(title) : task)),
-    );
+    const task = this.state().find((t) => t.id === id);
+    if (!task) return;
+    const edited = task.edit(title);
+    this.replaceTask(edited);
+    // Saving an unchanged title is not worth a log entry.
+    if (edited.title !== task.title) {
+      this.events.emit({ type: 'task-edited', from: task.title, to: edited.title });
+    }
   }
 
   start(id: string): void {
@@ -53,6 +63,7 @@ export class TaskStore {
       );
       this.breakStore.end();
       this.replaceTask(transitionedTask);
+      this.events.emit({ type: 'task-started', title: task.title });
     }
   }
 
@@ -61,6 +72,7 @@ export class TaskStore {
     if (task) {
       const transitionedTask = task.pause(Date.now());
       this.replaceTask(transitionedTask);
+      this.events.emit({ type: 'task-paused', title: task.title });
     }
   }
 
@@ -69,6 +81,7 @@ export class TaskStore {
     if (task) {
       const transitionedTask = task.resume(Date.now());
       this.replaceTask(transitionedTask);
+      this.events.emit({ type: 'task-resumed', title: task.title });
     }
   }
 
@@ -77,8 +90,10 @@ export class TaskStore {
     if (task) {
       const wasStarted = task.isRunning() || task.isPaused();
       const transitionedTask = task.complete();
-      if (wasStarted) this.breakStore.start();
       this.replaceTask(transitionedTask);
+      this.events.emit({ type: 'task-completed', title: task.title });
+      // After the completion, so the log reads "completed" → "break started".
+      if (wasStarted) this.breakStore.start();
     }
   }
 

@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { EventBus } from '../../core/event-bus';
+import type { AppEvent } from '../../domain/app-event';
 import { InvalidTransitionError, Task, type TaskProps, type TaskState } from '../../domain/task';
 import { Settings } from '../../domain/settings';
 import { SettingsStore } from '../settings/settings-store';
@@ -597,6 +599,131 @@ describe('TaskStore', () => {
 
       expect(kinds).toEqual(['short', 'short', 'short', 'long']);
       expect(breaks.currentCounter()).toBe(4);
+    });
+  });
+
+  describe('events', () => {
+    /** Everything emitted on the bus from now on. */
+    function recordEvents(): AppEvent[] {
+      const received: AppEvent[] = [];
+      TestBed.inject(EventBus).on((event) => received.push(event));
+      return received;
+    }
+
+    it('emits task-added with the stored (trimmed) title', () => {
+      const store = createStore();
+      const events = recordEvents();
+
+      store.add('  Buy milk  ');
+
+      expect(events).toEqual([{ type: 'task-added', title: store.tasks()[0].title }]);
+    });
+
+    it('emits task-edited with the old and the new title', () => {
+      seed(rawTask('Old'));
+      const store = createStore();
+      const events = recordEvents();
+
+      store.edit(byTitle(store, 'Old').id, 'New');
+
+      expect(events).toEqual([{ type: 'task-edited', from: 'Old', to: 'New' }]);
+    });
+
+    it('emits nothing when the title did not change', () => {
+      seed(rawTask('Same'));
+      const store = createStore();
+      const events = recordEvents();
+
+      store.edit(byTitle(store, 'Same').id, 'Same');
+
+      expect(events).toEqual([]);
+    });
+
+    it('emits task-deleted with the title of the removed task', () => {
+      seed(rawTask('Gone'));
+      const store = createStore();
+      const events = recordEvents();
+
+      store.delete(byTitle(store, 'Gone').id);
+
+      expect(events).toEqual([{ type: 'task-deleted', title: 'Gone' }]);
+    });
+
+    it('emits task-started, task-paused and task-resumed', () => {
+      seed(rawTask('A'));
+      const store = createStore();
+      const events = recordEvents();
+      const id = byTitle(store, 'A').id;
+
+      store.start(id);
+      store.pause(id);
+      store.resume(id);
+
+      expect(events).toEqual([
+        { type: 'task-started', title: 'A' },
+        { type: 'task-paused', title: 'A' },
+        { type: 'task-resumed', title: 'A' },
+      ]);
+    });
+
+    it('emits break-ended before task-started when a task ends a break', () => {
+      seed(rawTask('A'), rawTask('B'));
+      const store = createStore();
+      store.start(byTitle(store, 'A').id);
+      store.complete(byTitle(store, 'A').id); // starts a break
+      const events = recordEvents();
+
+      store.start(byTitle(store, 'B').id);
+
+      expect(events).toEqual([
+        { type: 'break-ended', kind: 'short' },
+        { type: 'task-started', title: 'B' },
+      ]);
+    });
+
+    it('emits task-completed, then break-started, for a started task', () => {
+      seed(rawTask('A'));
+      const store = createStore();
+      store.start(byTitle(store, 'A').id);
+      const events = recordEvents();
+
+      store.complete(byTitle(store, 'A').id);
+
+      expect(events).toEqual([
+        { type: 'task-completed', title: 'A' },
+        { type: 'break-started', kind: 'short' },
+      ]);
+    });
+
+    it('emits only task-completed when a pending task is ticked off', () => {
+      seed(rawTask('A'));
+      const store = createStore();
+      const events = recordEvents();
+
+      store.complete(byTitle(store, 'A').id);
+
+      expect(events).toEqual([{ type: 'task-completed', title: 'A' }]);
+    });
+
+    it('emits nothing for a failed transition', () => {
+      seed(rawTask('A', { status: 'done' }));
+      const store = createStore();
+      const events = recordEvents();
+
+      expect(() => store.complete(byTitle(store, 'A').id)).toThrow();
+      expect(events).toEqual([]);
+    });
+
+    it('emits nothing for an unknown id', () => {
+      const store = createStore();
+      const events = recordEvents();
+
+      store.edit('nope', 'X');
+      store.delete('nope');
+      store.start('nope');
+      store.complete('nope');
+
+      expect(events).toEqual([]);
     });
   });
 });

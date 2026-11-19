@@ -1,0 +1,58 @@
+:host {
+  display: block;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+
+  h2 {
+    margin: 0;
+    font: var(--mat-sys-title-large);
+  }
+}
+
+.log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: auto auto 1fr; // icon, time, text
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+  }
+
+  mat-icon {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  time {
+    font: var(--mat-sys-body-small);
+    font-variant-numeric: tabular-nums; // aligns the times in a column
+    color: var(--mat-sys-on-surface-variant);
+    white-space: nowrap;
+  }
+
+  .text {
+    min-width: 0;
+    overflow-wrap: anywhere; // long titles without spaces must not overflow on phones
+  }
+
+  .alert {
+    mat-icon,
+    .text {
+      color: var(--mat-sys-error);
+    }
+  }
+}
+
+.empty {
+  color: var(--mat-sys-on-surface-variant);
+}

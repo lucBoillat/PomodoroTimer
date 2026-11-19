@@ -5,6 +5,8 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSnackBarHarness } from '@angular/material/snack-bar/testing';
 import { Clock } from '../../core/clock';
+import { EventBus } from '../../core/event-bus';
+import type { AppEvent } from '../../domain/app-event';
 import type { TaskState } from '../../domain/task';
 import { BreakStore } from './break-store';
 import { TaskStore } from './task-store';
@@ -272,6 +274,45 @@ describe('TimerNotifier', () => {
       await settle();
 
       await expectNoSnackBar();
+    });
+  });
+
+  describe('events', () => {
+    /** Registers before the notifier starts, so nothing is missed. */
+    function recordEvents(): AppEvent[] {
+      const received: AppEvent[] = [];
+      TestBed.inject(EventBus).on((event) => received.push(event));
+      return received;
+    }
+
+    it('emits task-overdue once when the time runs out', async () => {
+      seedTask('Write tests', { status: 'running', endsAt: T0 + MINUTE });
+      const events = recordEvents();
+      await start();
+
+      for (let i = 0; i < 3; i++) await tickTo(T0 + MINUTE + i * 1000);
+
+      expect(events).toEqual([{ type: 'task-overdue', title: 'Write tests' }]);
+    });
+
+    it('emits nothing while the task is in time', async () => {
+      seedTask('Write tests', { status: 'running', endsAt: T0 + MINUTE });
+      const events = recordEvents();
+      await start();
+
+      await tickTo(T0 + MINUTE - 1);
+
+      expect(events).toEqual([]);
+    });
+
+    it.each(['short', 'long'] as const)('emits break-over once for a %s break', async (kind) => {
+      seedBreak(T0 + MINUTE, kind);
+      const events = recordEvents();
+      await start();
+
+      for (let i = 0; i < 3; i++) await tickTo(T0 + MINUTE + i * 1000);
+
+      expect(events).toEqual([{ type: 'break-over', kind }]);
     });
   });
 });

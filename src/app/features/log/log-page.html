@@ -1,1 +1,28 @@
-<p>log-page works!</p>
+<header class="toolbar">
+  <h2>Ereignisse</h2>
+  <button
+    mat-stroked-button
+    type="button"
+    [disabled]="rows().length === 0"
+    (click)="logStore.clear()"
+  >
+    <mat-icon>delete_sweep</mat-icon>
+    Log leeren
+  </button>
+</header>
+
+@if (rows().length > 0) {
+  <ol class="log" aria-label="Ereignisse, neueste zuerst">
+    @for (row of rows(); track row.id) {
+      <li [class.alert]="row.alert">
+        <mat-icon aria-hidden="true">{{ row.icon }}</mat-icon>
+        <time [attr.datetime]="row.at | date: 'yyyy-MM-ddTHH:mm:ss'">
+          {{ row.at | date: (row.today ? 'HH:mm:ss' : 'dd.MM.yyyy HH:mm') }}
+        </time>
+        <span class="text">{{ row.text }}</span>
+      </li>
+    }
+  </ol>
+} @else {
+  <p class="empty">Noch keine Ereignisse.</p>
+}

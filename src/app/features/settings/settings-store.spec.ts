@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { EventBus } from '../../core/event-bus';
+import type { AppEvent } from '../../domain/app-event';
 import { Settings, type SettingsProps } from '../../domain/settings';
 import { SettingsStore } from './settings-store';
 
@@ -143,6 +145,35 @@ describe('SettingsStore', () => {
 
       expect('set' in store.settings).toBe(false);
       expect('update' in store.settings).toBe(false);
+    });
+  });
+
+  describe('events', () => {
+    /** Everything emitted on the bus from now on. */
+    function recordEvents(): AppEvent[] {
+      const received: AppEvent[] = [];
+      TestBed.inject(EventBus).on((event) => received.push(event));
+      return received;
+    }
+
+    it('emits settings-changed with the new values', () => {
+      const store = createStore();
+      const events = recordEvents();
+
+      store.update(Settings.create({ pomodoroMinutes: 30 }));
+
+      expect(events).toEqual([
+        { type: 'settings-changed', settings: { ...DEFAULTS, pomodoroMinutes: 30 } },
+      ]);
+    });
+
+    it('emits nothing when saving unchanged values', () => {
+      const store = createStore();
+      const events = recordEvents();
+
+      store.update(Settings.create());
+
+      expect(events).toEqual([]);
     });
   });
 });

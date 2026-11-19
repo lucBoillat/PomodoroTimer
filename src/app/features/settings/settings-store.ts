@@ -1,10 +1,12 @@
-import { effect, Injectable, signal } from '@angular/core';
+import { effect, inject, Injectable, signal } from '@angular/core';
+import { EventBus } from '../../core/event-bus';
 import { Settings } from '../../domain/settings';
 
 const STORAGE_KEY = 'pomodoro.settings';
 
 @Injectable({ providedIn: 'root' })
 export class SettingsStore {
+  private readonly events = inject(EventBus);
   private readonly state = signal<Settings>(this.loadSettings());
 
   // Public read-only view: components can read and react to it, but can't call set() because set would skip the isrunning check
@@ -15,7 +17,11 @@ export class SettingsStore {
   }
 
   update(settings: Settings): void {
+    const unchanged = JSON.stringify(settings) === JSON.stringify(this.state());
     this.state.set(settings);
+    if (!unchanged) {
+      this.events.emit({ type: 'settings-changed', settings: settings.toJSON() });
+    }
   }
 
   private loadSettings(): Settings {

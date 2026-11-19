@@ -1,4 +1,5 @@
 import { effect, inject, Injectable, signal } from '@angular/core';
+import { EventBus } from '../../core/event-bus';
 import { Break } from '../../domain/break';
 import { SettingsStore } from '../settings/settings-store';
 
@@ -9,6 +10,7 @@ const LONG_BREAK_EVERY = 4;
 @Injectable({ providedIn: 'root' })
 export class BreakStore {
   private readonly settingsStore = inject(SettingsStore);
+  private readonly events = inject(EventBus);
 
   private readonly breakState = signal<Break | null>(this.loadBreak());
   private readonly breakNumber = signal<number>(this.loadCounter());
@@ -30,10 +32,15 @@ export class BreakStore {
         : this.settingsStore.settings().smallBreakMinutes;
 
     this.breakState.set(Break.start(breakType, Date.now(), breakMinutes * 60_000));
+    this.events.emit({ type: 'break-started', kind: breakType });
   }
 
   end(): void {
+    const currentBreak = this.breakState();
+    // TaskStore.start() calls end() unconditionally; only a real break ending is an event.
+    if (currentBreak === null) return;
     this.breakState.set(null);
+    this.events.emit({ type: 'break-ended', kind: currentBreak.kind });
   }
 
   private loadBreak(): Break | null {

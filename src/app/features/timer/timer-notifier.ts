@@ -5,6 +5,7 @@ import {
   type TextOnlySnackBar,
 } from '@angular/material/snack-bar';
 import { Clock } from '../../core/clock';
+import { EventBus } from '../../core/event-bus';
 import { BreakStore } from './break-store';
 import { TaskStore } from './task-store';
 
@@ -22,6 +23,7 @@ export class TimerNotifier {
   private readonly breakStore = inject(BreakStore);
   private readonly clock = inject(Clock);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly events = inject(EventBus);
 
   private taskRef: SnackBarRef | null = null;
   private breakRef: SnackBarRef | null = null;
@@ -57,6 +59,8 @@ export class TimerNotifier {
 
   private showOverdue(id: string): void {
     const title = this.taskStore.tasks().find((task) => task.id === id)?.title ?? '';
+    // Time-based: no store method knows this moment, but this transition is exactly it.
+    this.events.emit({ type: 'task-overdue', title });
     // No duration: it is an alarm and stays until the user reacts.
     this.taskRef = this.snackBar.open(`Zeit abgelaufen: „${title}“`, 'Erledigt', {
       politeness: 'assertive',
@@ -65,6 +69,8 @@ export class TimerNotifier {
   }
 
   private showBreakOver(): void {
+    const kind = this.breakStore.currentBreak()?.kind;
+    if (kind) this.events.emit({ type: 'break-over', kind });
     this.breakRef = this.snackBar.open('Pause vorbei', 'Pause beenden', {
       politeness: 'assertive',
     });

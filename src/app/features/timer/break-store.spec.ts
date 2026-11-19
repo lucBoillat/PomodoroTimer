@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { EventBus } from '../../core/event-bus';
+import type { AppEvent } from '../../domain/app-event';
 import { Break, type BreakProps } from '../../domain/break';
 import { Settings } from '../../domain/settings';
 import { SettingsStore } from '../settings/settings-store';
@@ -265,6 +267,48 @@ describe('BreakStore', () => {
       expect(reloaded.currentCounter()).toBe(3);
       reloaded.start();
       expect(reloaded.currentBreak()?.kind).toBe('long'); // the rhythm survives the reload
+    });
+  });
+
+  describe('events', () => {
+    /** Everything emitted on the bus from now on. */
+    function recordEvents(): AppEvent[] {
+      const received: AppEvent[] = [];
+      TestBed.inject(EventBus).on((event) => received.push(event));
+      return received;
+    }
+
+    it('emits break-started with the kind', () => {
+      const store = createStore();
+      const events = recordEvents();
+
+      startBreaks(store, 4);
+
+      expect(events.map((e) => (e.type === 'break-started' ? e.kind : e.type))).toEqual([
+        'short',
+        'short',
+        'short',
+        'long',
+      ]);
+    });
+
+    it('emits break-ended with the kind of the ended break', () => {
+      const store = createStore();
+      store.start();
+      const events = recordEvents();
+
+      store.end();
+
+      expect(events).toEqual([{ type: 'break-ended', kind: 'short' }]);
+    });
+
+    it('emits nothing when there is no break to end', () => {
+      const store = createStore();
+      const events = recordEvents();
+
+      store.end();
+
+      expect(events).toEqual([]);
     });
   });
 });
