@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { TaskForm } from './task-form';
+import { TaskStore } from './task-store';
 
 @Component({
   imports: [TaskForm],
@@ -7,4 +8,6 @@ import { TaskForm } from './task-form';
   styleUrl: './timer-page.scss',
   templateUrl: './timer-page.html',
 })
-export class TimerPage {}
+export class TimerPage {
+  protected readonly taskStore = inject(TaskStore);
+}
