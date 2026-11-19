@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { InvalidTransitionError, Task, type TaskProps, type TaskState } from '../../domain/task';
 import { Settings } from '../../domain/settings';
 import { SettingsStore } from '../settings/settings-store';
+import { BreakStore } from './break-store';
 import { TaskStore } from './task-store';
 
 const STORAGE_KEY = 'pomodoro.tasks';
@@ -517,5 +518,85 @@ describe('TaskStore', () => {
 
     expect(store.tasks().map((t) => t.state.status)).toEqual(['done', 'running']);
     expect(stored()).toEqual(store.tasks().map((t) => t.toJSON()));
+  });
+
+  describe('breaks', () => {
+    let breaks: BreakStore;
+
+    beforeEach(() => {
+      breaks = TestBed.inject(BreakStore);
+    });
+
+    it.each<[string, TaskState]>([
+      ['running', { status: 'running', endsAt: NOW + MINUTE }],
+      ['overdue', { status: 'running', endsAt: NOW - MINUTE }],
+      ['paused', { status: 'paused', remainingMs: MINUTE }],
+    ])('starts a break when a %s task is completed', (_label, state) => {
+      const task = rawTask('A', state);
+      seed(task);
+      const store = createStore();
+
+      store.complete(task.id);
+
+      expect(breaks.currentBreak()?.kind).toBe('short');
+      expect(breaks.currentCounter()).toBe(1);
+    });
+
+    it('does not start a break when a pending task is ticked off', () => {
+      const store = createStore();
+      store.add('A');
+
+      store.complete(byTitle(store, 'A').id);
+
+      expect(breaks.currentBreak()).toBeNull();
+      expect(breaks.currentCounter()).toBe(0);
+    });
+
+    it('does not start a break when completing fails', () => {
+      const done = rawTask('Done', { status: 'done' });
+      seed(done);
+      const store = createStore();
+
+      expect(() => store.complete(done.id)).toThrow(InvalidTransitionError);
+      expect(breaks.currentBreak()).toBeNull();
+      expect(breaks.currentCounter()).toBe(0);
+    });
+
+    it('ends a running break when the next task starts', () => {
+      const store = createStore();
+      store.add('A');
+      breaks.start();
+
+      store.start(byTitle(store, 'A').id);
+
+      expect(breaks.currentBreak()).toBeNull();
+    });
+
+    it('keeps the break when starting a task fails', () => {
+      const done = rawTask('Done', { status: 'done' });
+      seed(done);
+      const store = createStore();
+      breaks.start();
+
+      expect(() => store.start(done.id)).toThrow(InvalidTransitionError);
+      expect(breaks.currentBreak()).not.toBeNull();
+    });
+
+    it('gives a long break after the 4th worked pomodoro, ignoring ticked-off tasks', () => {
+      const store = createStore();
+      const kinds: (string | undefined)[] = [];
+      for (const title of ['1', '2', '3', '4']) {
+        store.add(title);
+        store.add(`${title} ticked off`);
+        store.complete(byTitle(store, `${title} ticked off`).id); // no pomodoro, no break
+        store.start(byTitle(store, title).id);
+        advance(DEFAULT_POMODORO_MS);
+        store.complete(byTitle(store, title).id);
+        kinds.push(breaks.currentBreak()?.kind);
+      }
+
+      expect(kinds).toEqual(['short', 'short', 'short', 'long']);
+      expect(breaks.currentCounter()).toBe(4);
+    });
   });
 });

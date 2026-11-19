@@ -1,12 +1,14 @@
 import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import { InvalidTransitionError, Task } from '../../domain/task';
 import { SettingsStore } from '../settings/settings-store';
+import { BreakStore } from './break-store';
 
 const STORAGE_KEY = 'pomodoro.tasks';
 
 @Injectable({ providedIn: 'root' })
 export class TaskStore {
   private readonly settingsStore = inject(SettingsStore);
+  private readonly breakStore = inject(BreakStore);
   private readonly state = signal<readonly Task[]>(this.loadTasks());
   readonly tasks = this.state.asReadonly();
   readonly activeTask = computed(
@@ -49,6 +51,7 @@ export class TaskStore {
         Date.now(),
         this.settingsStore.settings().pomodoroMinutes * 60_000,
       );
+      this.breakStore.end();
       this.replaceTask(transitionedTask);
     }
   }
@@ -72,7 +75,9 @@ export class TaskStore {
   complete(id: string): void {
     const task = this.state().find((task) => task.id === id);
     if (task) {
+      const wasStarted = task.isRunning() || task.isPaused();
       const transitionedTask = task.complete();
+      if (wasStarted) this.breakStore.start();
       this.replaceTask(transitionedTask);
     }
   }
