@@ -9,6 +9,7 @@ import { SettingsPage } from './settings-page';
 import { SettingsStore } from './settings-store';
 import type { TaskState } from '../../domain/task';
 import { TaskStore } from '../timer/task-store';
+import { BreakStore } from '../timer/break-store';
 
 const STORAGE_KEY = 'pomodoro.settings';
 const DEFAULTS: SettingsProps = {
@@ -26,12 +27,18 @@ type FieldName = keyof typeof LABELS;
 const FIELD_NAMES = Object.keys(LABELS) as FieldName[];
 
 const TASKS_KEY = 'pomodoro.tasks';
-const LOCKED_MESSAGE = 'Die Einstellungen sind gesperrt solange eine Aufgabe läuft.';
+const BREAK_KEY = 'pomodoro.break';
+const LOCKED_MESSAGE = 'Die Einstellungen sind gesperrt solange eine Aufgabe oder Pause läuft.';
 
 /** Puts tasks with the given states into storage, so the TaskStore loads them. */
 function seedTasks(...states: TaskState[]): void {
   const tasks = states.map((state, i) => ({ id: crypto.randomUUID(), title: `Task ${i}`, state }));
   localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+}
+
+/** Puts a break into storage, so the BreakStore loads it. */
+function seedBreak(endsAt: number): void {
+  localStorage.setItem(BREAK_KEY, JSON.stringify({ kind: 'short', endsAt }));
 }
 
 describe('SettingsPage', () => {
@@ -216,7 +223,7 @@ describe('SettingsPage', () => {
     });
   });
 
-  describe('locking while a task is active', () => {
+  describe('locking while a task or break is active', () => {
     it.each<[string, TaskState]>([
       ['running', { status: 'running', endsAt: Date.now() + 60_000 }],
       ['overdue', { status: 'running', endsAt: Date.now() - 60_000 }],
@@ -257,23 +264,63 @@ describe('SettingsPage', () => {
       expect(lockedHint()).toBe(LOCKED_MESSAGE);
     });
 
-    it('unlocks again once the active task is completed', async () => {
+    it('stays locked after completing a task, because the break starts', async () => {
       seedTasks({ status: 'running', endsAt: Date.now() + 60_000 });
       await render();
       const taskStore = TestBed.inject(TaskStore);
 
       taskStore.complete(taskStore.tasks()[0].id);
 
+      expect(await disabledFields()).toEqual(FIELD_NAMES);
+      expect(await (await saveButton()).isDisabled()).toBe(true);
+      expect(lockedHint()).toBe(LOCKED_MESSAGE);
+    });
+
+    it('stays editable when a pending task is ticked off (no break)', async () => {
+      seedTasks({ status: 'pending' });
+      await render();
+      const taskStore = TestBed.inject(TaskStore);
+
+      taskStore.complete(taskStore.tasks()[0].id);
+
+      expect(await disabledFields()).toEqual([]);
+      expect(lockedHint()).toBeNull();
+    });
+
+    it('disables all fields and the button while a break is running', async () => {
+      seedBreak(Date.now() + 60_000);
+      await render();
+
+      expect(await disabledFields()).toEqual(FIELD_NAMES);
+      expect(await (await saveButton()).isDisabled()).toBe(true);
+      expect(lockedHint()).toBe(LOCKED_MESSAGE);
+    });
+
+    // Current rule: a break locks until it is ended, even after its time has run out.
+    it('stays locked for a break whose time has run out but was not ended', async () => {
+      seedBreak(Date.now() - 60_000);
+      await render();
+
+      expect(await disabledFields()).toEqual(FIELD_NAMES);
+    });
+
+    it('unlocks once the break is ended', async () => {
+      seedBreak(Date.now() + 60_000);
+      await render();
+
+      TestBed.inject(BreakStore).end();
+
       expect(await disabledFields()).toEqual([]);
       expect(await (await saveButton()).isDisabled()).toBe(false);
       expect(lockedHint()).toBeNull();
     });
 
-    it('can save again after unlocking', async () => {
+    it('can save again after the task is completed and the break is ended', async () => {
       seedTasks({ status: 'paused', remainingMs: 60_000 });
       await render();
       const taskStore = TestBed.inject(TaskStore);
       taskStore.complete(taskStore.tasks()[0].id);
+      TestBed.inject(BreakStore).end();
 
       await type('pomodoroMinutes', '40');
       await submit();

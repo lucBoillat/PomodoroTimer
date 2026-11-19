@@ -12,6 +12,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { SettingsStore } from './settings-store';
 import { TaskStore } from '../timer/task-store';
+import { BreakStore } from '../timer/break-store';
 
 @Component({
   imports: [FormField, MatFormFieldModule, MatInputModule, FormRoot, MatButtonModule],
@@ -22,14 +23,15 @@ import { TaskStore } from '../timer/task-store';
 export class SettingsPage {
   private readonly settingsStore = inject(SettingsStore);
   private readonly taskStore = inject(TaskStore);
+  private readonly breakStore = inject(BreakStore);
   protected readonly model = linkedSignal(() => this.settingsStore.settings().toJSON());
   protected readonly settingsForm = form(
     this.model,
     (path) => {
       disabled(path, {
         when: () =>
-          this.taskStore.activeTask() !== null
-            ? 'Die Einstellungen sind gesperrt solange eine Aufgabe läuft.'
+          this.taskStore.activeTask() !== null || this.breakStore.currentBreak() !== null
+            ? 'Die Einstellungen sind gesperrt solange eine Aufgabe oder Pause läuft.'
             : false,
       });
       validateStandardSchema(path, settingsSchema);
