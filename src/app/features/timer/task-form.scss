@@ -1,0 +1,19 @@
+:host {
+  display: block;
+}
+
+form {
+  display: flex;
+  align-items: flex-start; // top-align, so the hint/error line below the field doesn't push the button down
+  gap: 12px;
+}
+
+mat-form-field {
+  flex: 1; // the field takes the remaining width
+  min-width: 0; // allow it to shrink below its content width on narrow screens
+}
+
+button[type='submit'] {
+  flex-shrink: 0;
+  margin-top: 8px; // centre the 40px button on the 56px input row
+}

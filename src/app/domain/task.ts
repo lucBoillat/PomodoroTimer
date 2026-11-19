@@ -8,12 +8,14 @@ const taskStateSchema = z.discriminatedUnion('status', [
 ]);
 export type TaskState = Readonly<z.infer<typeof taskStateSchema>>;
 
+export const TASK_TITLE_MAX_LENGTH = 40;
+
 const taskSchema = z.object({
   id: z.uuid(),
-  title: z.string().trim().min(1).max(40),
+  title: z.string().trim().min(1).max(TASK_TITLE_MAX_LENGTH),
   state: taskStateSchema,
 });
-const createTaskSchema = taskSchema.pick({ title: true });
+export const createTaskSchema = taskSchema.pick({ title: true });
 
 type TaskInput = z.input<typeof createTaskSchema>;
 export type TaskProps = Readonly<z.output<typeof taskSchema>>;
