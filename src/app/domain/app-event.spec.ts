@@ -18,6 +18,7 @@ describe('appEventSchema', () => {
       type: 'settings-changed',
       settings: { pomodoroMinutes: 25, smallBreakMinutes: 5, largeBreakMinutes: 15 },
     },
+    { type: 'notifications-toggled', enabled: true },
     { type: 'sample-data-loaded', count: 3 },
     { type: 'app-reset' },
   ])('accepts a valid $type event', (event) => {

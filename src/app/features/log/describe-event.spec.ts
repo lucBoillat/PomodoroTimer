@@ -23,6 +23,8 @@ describe('describeEvent', () => {
       },
       'Einstellungen geändert: 30 min Arbeit, 5 min kurze Pause, 20 min lange Pause',
     ],
+    [{ type: 'notifications-toggled', enabled: true }, 'Desktop-Benachrichtigungen eingeschaltet'],
+    [{ type: 'notifications-toggled', enabled: false }, 'Desktop-Benachrichtigungen ausgeschaltet'],
     [{ type: 'sample-data-loaded', count: 1 }, '1 Beispielaufgabe geladen'],
     [{ type: 'sample-data-loaded', count: 5 }, '5 Beispielaufgaben geladen'],
     [{ type: 'app-reset' }, 'Alles zurückgesetzt'],

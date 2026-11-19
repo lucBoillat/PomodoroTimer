@@ -13,3 +13,19 @@ form {
 button[type='submit'] {
   align-self: flex-start;
 }
+
+.notifications {
+  max-width: 320px;
+  margin-top: 32px;
+
+  h2 {
+    margin: 0 0 8px;
+    font: var(--mat-sys-title-medium);
+  }
+
+  .hint {
+    margin: 4px 0 0;
+    font: var(--mat-sys-body-small);
+    color: var(--mat-sys-on-surface-variant);
+  }
+}

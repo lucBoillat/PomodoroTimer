@@ -4,6 +4,12 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatFormFieldHarness } from '@angular/material/form-field/testing';
 import { MatInputHarness } from '@angular/material/input/testing';
+import { MatSlideToggleHarness } from '@angular/material/slide-toggle/testing';
+import {
+  createFakeNotificationApi,
+  type FakeNotificationApi,
+} from '../../../testing/fake-notification';
+import { NOTIFICATION_API } from '../../core/desktop-notifications';
 import { Settings, type SettingsProps } from '../../domain/settings';
 import { SettingsPage } from './settings-page';
 import { SettingsStore } from './settings-store';
@@ -326,6 +332,108 @@ describe('SettingsPage', () => {
       await submit();
 
       expect(store.settings().pomodoroMinutes).toBe(40);
+    });
+  });
+
+  describe('desktop notifications', () => {
+    let fake: FakeNotificationApi;
+
+    async function renderWith(api: FakeNotificationApi | null): Promise<void> {
+      TestBed.configureTestingModule({
+        providers: [{ provide: NOTIFICATION_API, useValue: api?.api ?? null }],
+      });
+      await render();
+    }
+
+    function toggle(): Promise<MatSlideToggleHarness> {
+      return loader.getHarness(MatSlideToggleHarness.with({ label: 'Desktop-Benachrichtigungen' }));
+    }
+
+    function hint(): string | undefined {
+      return host.querySelector('#notifications-hint')?.textContent?.trim();
+    }
+
+    beforeEach(() => {
+      fake = createFakeNotificationApi('default');
+    });
+
+    it('starts off with an explanation', async () => {
+      await renderWith(fake);
+
+      expect(await (await toggle()).isChecked()).toBe(false);
+      expect(await (await toggle()).isDisabled()).toBe(false);
+      expect(hint()).toBe(
+        'Benachrichtigt dich, wenn die Zeit abläuft und das Fenster nicht sichtbar ist.',
+      );
+    });
+
+    it('connects the explanation to the toggle for screen readers', async () => {
+      await renderWith(fake);
+
+      const control = host.querySelector('mat-slide-toggle button');
+      expect(control?.getAttribute('aria-describedby')).toContain('notifications-hint');
+    });
+
+    it('asks the browser on the first click and stays on when allowed', async () => {
+      await renderWith(fake);
+      fake.answer = 'granted';
+
+      await (await toggle()).toggle();
+
+      expect(fake.prompts).toBe(1);
+      await vi.waitFor(async () => expect(await (await toggle()).isChecked()).toBe(true));
+    });
+
+    it('flips back off when the user declines', async () => {
+      await renderWith(fake);
+      fake.answer = 'denied';
+
+      await (await toggle()).toggle();
+
+      await vi.waitFor(async () => expect(await (await toggle()).isChecked()).toBe(false));
+      await vi.waitFor(async () => expect(await (await toggle()).isDisabled()).toBe(true));
+      expect(hint()).toContain('Im Browser blockiert');
+    });
+
+    it('can be switched off again', async () => {
+      fake.permission = 'granted';
+      await renderWith(fake);
+      await (await toggle()).toggle();
+      await vi.waitFor(async () => expect(await (await toggle()).isChecked()).toBe(true));
+
+      await (await toggle()).toggle();
+
+      expect(await (await toggle()).isChecked()).toBe(false);
+      expect(JSON.parse(localStorage.getItem('pomodoro.notifications') ?? 'null')).toBe(false);
+    });
+
+    it('is disabled and says why when the browser blocks notifications', async () => {
+      fake.permission = 'denied';
+      await renderWith(fake);
+
+      expect(await (await toggle()).isDisabled()).toBe(true);
+      expect(hint()).toBe(
+        'Im Browser blockiert. Du kannst sie in den Einstellungen der Website erlauben.',
+      );
+    });
+
+    it('is disabled and says why when the browser has no notifications', async () => {
+      await renderWith(null);
+
+      expect(await (await toggle()).isDisabled()).toBe(true);
+      expect(hint()).toBe('Dein Browser unterstützt keine Desktop-Benachrichtigungen.');
+    });
+
+    it('stays usable while the settings form is locked', async () => {
+      seedTasks({ status: 'running', endsAt: Date.now() + 60_000 });
+      fake.permission = 'granted';
+      await renderWith(fake);
+      expect(lockedHint()).toBe(LOCKED_MESSAGE);
+
+      await (await toggle()).toggle();
+
+      expect(await (await toggle()).isDisabled()).toBe(false);
+      await vi.waitFor(async () => expect(await (await toggle()).isChecked()).toBe(true));
     });
   });
 });

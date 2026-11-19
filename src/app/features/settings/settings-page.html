@@ -31,3 +31,16 @@
   }
   <button mat-flat-button type="submit" [disabled]="settingsForm().disabled()">Speichern</button>
 </form>
+
+<section class="notifications" aria-labelledby="notifications-heading">
+  <h2 id="notifications-heading">Benachrichtigungen</h2>
+  <mat-slide-toggle
+    [checked]="notifications.enabled()"
+    [disabled]="notificationsUnavailable()"
+    aria-describedby="notifications-hint"
+    (change)="toggleNotifications($event)"
+  >
+    Desktop-Benachrichtigungen
+  </mat-slide-toggle>
+  <p id="notifications-hint" class="hint">{{ notificationHint() }}</p>
+</section>

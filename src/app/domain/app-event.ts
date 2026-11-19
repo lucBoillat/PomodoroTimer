@@ -23,6 +23,7 @@ export const appEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('break-over'), kind: breakKind }),
   z.object({ type: z.literal('break-ended'), kind: breakKind }),
   z.object({ type: z.literal('settings-changed'), settings: settingsSchema }),
+  z.object({ type: z.literal('notifications-toggled'), enabled: z.boolean() }),
   z.object({ type: z.literal('sample-data-loaded'), count: z.int().min(0) }),
   z.object({ type: z.literal('app-reset') }),
 ]);

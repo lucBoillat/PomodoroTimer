@@ -41,6 +41,10 @@ export function describeEvent(event: AppEvent): string {
         `${s.smallBreakMinutes} min kurze Pause, ${s.largeBreakMinutes} min lange Pause`
       );
     }
+    case 'notifications-toggled':
+      return event.enabled
+        ? 'Desktop-Benachrichtigungen eingeschaltet'
+        : 'Desktop-Benachrichtigungen ausgeschaltet';
     case 'sample-data-loaded':
       return event.count === 1
         ? '1 Beispielaufgabe geladen'
@@ -65,6 +69,7 @@ export const EVENT_ICONS: Record<AppEventType, string> = {
   'break-over': 'alarm',
   'break-ended': 'coffee',
   'settings-changed': 'settings',
+  'notifications-toggled': 'notifications',
   'sample-data-loaded': 'dataset',
   'app-reset': 'restart_alt',
 };
