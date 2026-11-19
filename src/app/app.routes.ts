@@ -4,12 +4,12 @@ export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'timer' },
   {
     path: 'timer',
-    title: 'Timer',
+    title: 'Wecker',
     loadComponent: () => import('./features/timer/timer-page').then((m) => m.TimerPage),
   },
   {
     path: 'settings',
-    title: 'Settings',
+    title: 'Einstellungen',
     loadComponent: () => import('./features/settings/settings-page').then((m) => m.SettingsPage),
   },
   {

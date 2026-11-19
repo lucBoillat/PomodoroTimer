@@ -161,20 +161,21 @@ describe('SettingsPage', () => {
   });
 
   describe('validation', () => {
-    it.each<[string, FieldName, string]>([
-      ['too small', 'pomodoroMinutes', '0'],
-      ['too large', 'pomodoroMinutes', '201'],
-      ['not a whole number', 'pomodoroMinutes', '2.5'],
-      ['empty', 'pomodoroMinutes', ''],
-      ['too large', 'smallBreakMinutes', '31'],
-      ['too large', 'largeBreakMinutes', '91'],
+    it.each<[string, FieldName, string, string]>([
+      ['too small', 'pomodoroMinutes', '0', 'Mindestens 1'],
+      ['too large', 'pomodoroMinutes', '201', 'Höchstens 200'],
+      ['not a whole number', 'pomodoroMinutes', '2.5', 'Bitte eine ganze Zahl eingeben'],
+      ['empty', 'pomodoroMinutes', '', 'Bitte eine Zahl eingeben'],
+      ['too small', 'smallBreakMinutes', '0', 'Mindestens 1'],
+      ['too large', 'smallBreakMinutes', '31', 'Höchstens 30'],
+      ['too large', 'largeBreakMinutes', '91', 'Höchstens 90'],
     ])(
-      'shows an error and does not save when the value is %s (%s = "%s")',
-      async (_case, name, value) => {
+      'shows a German error and does not save when the value is %s (%s = "%s")',
+      async (_case, name, value, message) => {
         await render();
 
         await type(name, value);
-        expect((await errors(name)).length).toBeGreaterThan(0);
+        expect(await errors(name)).toEqual([message]);
 
         await submit();
         expect(store.settings().toJSON()).toEqual(DEFAULTS);

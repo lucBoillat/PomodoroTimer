@@ -4,7 +4,8 @@ import {
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, TitleStrategy } from '@angular/router';
+import { AppTitleStrategy } from './core/app-title-strategy';
 import { MAT_ICON_DEFAULT_OPTIONS } from '@angular/material/icon';
 import { routes } from './app.routes';
 import { LogStore } from './features/log/log-store';
@@ -15,6 +16,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
+    { provide: TitleStrategy, useClass: AppTitleStrategy },
     // index.html loads the Material Symbols font; make <mat-icon> use it instead of the older Material Icons.
     { provide: MAT_ICON_DEFAULT_OPTIONS, useValue: { fontSet: 'material-symbols-outlined' } },
     // Root services are created lazily. These must run from the start, on every tab:

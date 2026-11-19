@@ -84,15 +84,22 @@ describe('TaskForm', () => {
     });
 
     it.each([
-      ['empty', ''],
-      ['only whitespace', '   '],
-      ['too long', 'x'.repeat(TASK_TITLE_MAX_LENGTH + 1)],
-    ])('shows an error and emits nothing when the title is %s', async (_label, title) => {
-      await add(title);
+      ['empty', '', 'Darf nicht leer sein'],
+      ['only whitespace', '   ', 'Darf nicht leer sein'],
+      [
+        'too long',
+        'x'.repeat(TASK_TITLE_MAX_LENGTH + 1),
+        `Höchstens ${TASK_TITLE_MAX_LENGTH} Zeichen`,
+      ],
+    ])(
+      'shows a German error and emits nothing when the title is %s',
+      async (_label, title, message) => {
+        await add(title);
 
-      expect((await errors()).length).toBeGreaterThan(0);
-      expect(added).toEqual([]);
-    });
+        expect(await errors()).toEqual([message]);
+        expect(added).toEqual([]);
+      },
+    );
 
     it('keeps the invalid text so the user can fix it', async () => {
       const tooLong = 'x'.repeat(TASK_TITLE_MAX_LENGTH + 1);

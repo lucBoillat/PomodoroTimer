@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { MatTabsModule } from '@angular/material/tabs';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { routes } from './app.routes';
 
 @Component({
   imports: [RouterOutlet, MatTabsModule, RouterLink, RouterLinkActive],
@@ -9,9 +10,10 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
   templateUrl: './app.html',
 })
 export class App {
-  protected readonly links = [
-    { path: '/timer', label: 'Timer' },
-    { path: '/settings', label: 'Einstellungen' },
-    { path: '/log', label: 'Log' },
-  ];
+  // One source for both: a route's title is its tab label (the browser tab adds the app name).
+  protected readonly links = routes.flatMap((route) =>
+    route.loadComponent && typeof route.title === 'string'
+      ? [{ path: `/${route.path}`, label: route.title }]
+      : [],
+  );
 }

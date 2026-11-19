@@ -274,19 +274,19 @@ describe('TaskItem', () => {
     });
 
     it.each([
-      ['empty', ''],
-      ['only whitespace', '   '],
-      ['too long', 'x'.repeat(41)],
+      ['empty', '', 'Darf nicht leer sein'],
+      ['only whitespace', '   ', 'Darf nicht leer sein'],
+      ['too long', 'x'.repeat(41), 'Höchstens 40 Zeichen'],
     ])(
-      'shows an error, emits nothing and stays in edit mode when the title is %s',
-      async (_label, value) => {
+      'shows a German error, emits nothing and stays in edit mode when the title is %s',
+      async (_label, value, message) => {
         await render(pending('Buy milk'));
         await click('edit');
 
         await (await titleInput()).setValue(value);
         await click('save');
 
-        expect((await editErrors()).length).toBeGreaterThan(0);
+        expect(await editErrors()).toEqual([message]);
         expect(emitted.rename).toEqual([]);
         expect(await isEditing()).toBe(true);
       },
