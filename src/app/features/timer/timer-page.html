@@ -1,1 +1,13 @@
 <app-task-form (added)="taskStore.add($event)" />
+@for (task of taskStore.tasks(); track task.id) {
+  <app-task-item
+    [task]="task"
+    [startBlocked]="startBlocked()"
+    (start)="taskStore.start(task.id)"
+    (complete)="taskStore.complete(task.id)"
+    (remove)="taskStore.delete(task.id)"
+    (rename)="taskStore.edit(task.id, $event)"
+  />
+} @empty {
+  <p>Noch keine Aufgaben.</p>
+}
