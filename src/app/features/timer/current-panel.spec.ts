@@ -8,11 +8,13 @@ import { CurrentPanel } from './current-panel';
 
 const MINUTE = 60_000;
 
-const running = (title = 'Write tests'): Task =>
-  Task.create({ title }).start(Date.now(), 25 * MINUTE);
-const paused = (title = 'Write tests'): Task => running(title).pause(Date.now());
-const shortBreak = (): Break => Break.start('short', Date.now(), 5 * MINUTE);
-const longBreak = (): Break => Break.start('long', Date.now(), 15 * MINUTE);
+const NOW = new Date('2026-01-01T12:00:00Z').getTime();
+
+// All tasks and breaks start at NOW; tests move `now` instead of waiting.
+const running = (title = 'Write tests'): Task => Task.create({ title }).start(NOW, 25 * MINUTE);
+const paused = (title = 'Write tests'): Task => running(title).pause(NOW + 5 * MINUTE); // 20 min left
+const shortBreak = (): Break => Break.start('short', NOW, 5 * MINUTE);
+const longBreak = (): Break => Break.start('long', NOW, 15 * MINUTE);
 
 type OutputName = 'pauseTask' | 'resumeTask' | 'complete' | 'endBreak';
 
@@ -22,10 +24,15 @@ describe('CurrentPanel', () => {
   let host: HTMLElement;
   let emitted: Record<OutputName, number>;
 
-  async function render(task: Task | null = null, activeBreak: Break | null = null): Promise<void> {
+  async function render(
+    task: Task | null = null,
+    activeBreak: Break | null = null,
+    now = NOW,
+  ): Promise<void> {
     fixture = TestBed.createComponent(CurrentPanel);
     fixture.componentRef.setInput('task', task);
     fixture.componentRef.setInput('activeBreak', activeBreak);
+    fixture.componentRef.setInput('now', now);
     loader = TestbedHarnessEnvironment.loader(fixture);
     host = fixture.nativeElement;
 
@@ -41,6 +48,12 @@ describe('CurrentPanel', () => {
   async function setInputs(task: Task | null, activeBreak: Break | null): Promise<void> {
     fixture.componentRef.setInput('task', task);
     fixture.componentRef.setInput('activeBreak', activeBreak);
+    await fixture.whenStable();
+  }
+
+  /** Lets time pass, like the Clock ticking. */
+  async function setNow(now: number): Promise<void> {
+    fixture.componentRef.setInput('now', now);
     await fixture.whenStable();
   }
 
@@ -156,6 +169,149 @@ describe('CurrentPanel', () => {
 
       await setInputs(null, null);
       expect(text('.empty')).toBe('Keine aktive Aufgabe');
+    });
+  });
+
+  describe('time', () => {
+    const SECOND = 1000;
+
+    it('shows no time when nothing is active', async () => {
+      await render();
+
+      expect(text('.time')).toBeNull();
+    });
+
+    it('shows the full duration right after the start', async () => {
+      await render(running());
+
+      expect(text('.time')).toBe('25:00');
+    });
+
+    it('counts down as time passes', async () => {
+      await render(running());
+
+      await setNow(NOW + SECOND);
+      expect(text('.time')).toBe('24:59');
+
+      await setNow(NOW + 12 * MINUTE + 30 * SECOND);
+      expect(text('.time')).toBe('12:30');
+    });
+
+    it('stands still while paused', async () => {
+      await render(paused());
+      expect(text('.time')).toBe('20:00');
+
+      await setNow(NOW + 10 * MINUTE);
+
+      expect(text('.time')).toBe('20:00');
+      expect(text('.kicker')).toBe('Pausiert');
+    });
+
+    it('counts down a break', async () => {
+      await render(null, shortBreak(), NOW + 2 * MINUTE);
+
+      expect(text('.time')).toBe('03:00');
+    });
+
+    it('marks the time as a timer, so it is not read out every second', async () => {
+      await render(running());
+
+      const time = host.querySelector('.time');
+      expect(time?.getAttribute('role')).toBe('timer');
+      expect(time?.closest('[aria-live]')).toBeNull();
+    });
+  });
+
+  describe('overdue task', () => {
+    const SECOND = 1000;
+
+    it('is not overdue one millisecond before the end', async () => {
+      await render(running(), null, NOW + 25 * MINUTE - 1);
+
+      expect(text('.kicker')).toBe('Läuft');
+      expect(text('.time')).toBe('00:00');
+      expect(shownButtons()).toEqual(['Pausieren', 'Erledigt']);
+    });
+
+    it('becomes overdue exactly at the end', async () => {
+      await render(running(), null, NOW + 25 * MINUTE);
+
+      expect(text('.kicker')).toBe('Überfällig');
+      expect(text('.time')).toBe('+00:00');
+    });
+
+    it('switches to overdue while it is shown', async () => {
+      await render(running());
+
+      await setNow(NOW + 25 * MINUTE + 3 * SECOND);
+
+      expect(text('.kicker')).toBe('Überfällig');
+      expect(text('.time')).toBe('+00:03');
+    });
+
+    it('counts the time over upwards', async () => {
+      await render(running(), null, NOW + 27 * MINUTE + 15 * SECOND);
+
+      expect(text('.time')).toBe('+02:15');
+    });
+
+    it('switches to hours after a long time', async () => {
+      await render(running(), null, NOW + 25 * MINUTE + 61 * MINUTE);
+
+      expect(text('.time')).toBe('+1:01:00');
+    });
+
+    it('only offers "Erledigt", because it can no longer be paused', async () => {
+      await render(running(), null, NOW + 26 * MINUTE);
+
+      expect(shownButtons()).toEqual(['Erledigt']);
+    });
+
+    it('still emits complete', async () => {
+      await render(running(), null, NOW + 26 * MINUTE);
+
+      await click('Erledigt');
+
+      expect(emitted.complete).toBe(1);
+    });
+
+    it('highlights the label and the time', async () => {
+      await render(running(), null, NOW + 26 * MINUTE);
+
+      expect(host.querySelector('.kicker')?.classList).toContain('overdue');
+      expect(host.querySelector('.time')?.classList).toContain('overdue');
+    });
+
+    it('is not highlighted while running in time', async () => {
+      await render(running());
+
+      expect(host.querySelectorAll('.overdue').length).toBe(0);
+    });
+  });
+
+  describe('break over', () => {
+    it('says the break is over once its time is up', async () => {
+      await render(null, shortBreak(), NOW + 5 * MINUTE);
+
+      expect(text('.kicker')).toBe('Pause vorbei');
+      expect(text('.title')).toBe('Kurze Pause');
+      expect(text('.time')).toBe('00:00');
+    });
+
+    it('stays until it is ended', async () => {
+      await render(null, shortBreak(), NOW + 60 * MINUTE);
+
+      expect(text('.time')).toBe('00:00'); // no "+" for breaks
+      expect(shownButtons()).toEqual(['Pause beenden']);
+    });
+
+    it('switches while it is shown', async () => {
+      await render(null, shortBreak());
+      expect(text('.kicker')).toBe('Pause');
+
+      await setNow(NOW + 5 * MINUTE);
+
+      expect(text('.kicker')).toBe('Pause vorbei');
     });
   });
 

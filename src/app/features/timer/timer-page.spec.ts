@@ -313,6 +313,30 @@ describe('TimerPage', () => {
       expect(await (await buttonIn('Waiting', 'Starten')).isDisabled()).toBe(false);
     });
 
+    it('shows the countdown of a freshly started task', async () => {
+      seedTasks(['A']);
+      await render();
+
+      await (await buttonIn('A', 'Starten')).click();
+
+      // Default pomodoro length; the clock lags behind Date.now(), never ahead, so this is exact.
+      expect(host.querySelector('app-current-panel .time')?.textContent?.trim()).toBe('25:00');
+    });
+
+    it('shows an overdue task without "Pausieren"', async () => {
+      seedTasks(['A', { status: 'running', endsAt: Date.now() - 2 * MINUTE }]);
+      await render();
+
+      expect(host.querySelector('app-current-panel .kicker')?.textContent?.trim()).toBe(
+        'Überfällig',
+      );
+      expect(
+        await loader.getAllHarnesses(
+          MatButtonHarness.with({ ancestor: 'app-current-panel', text: /Pausieren$/ }),
+        ),
+      ).toEqual([]);
+    });
+
     it('runs a full cycle: start → pause → resume → complete → end break', async () => {
       seedTasks(['A'], ['B']);
       await render();

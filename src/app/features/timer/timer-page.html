@@ -1,6 +1,7 @@
 <app-current-panel
   [task]="taskStore.activeTask()"
   [activeBreak]="breakStore.currentBreak()"
+  [now]="clock.now()"
   (pauseTask)="pauseActive()"
   (resumeTask)="resumeActive()"
   (complete)="completeActive()"

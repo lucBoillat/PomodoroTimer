@@ -14,6 +14,24 @@
   text-align: center;
 }
 
+.headline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.time {
+  margin: 0;
+  font: var(--mat-sys-display-large);
+  font-variant-numeric: tabular-nums; // all digits equally wide, so the number doesn't jitter
+}
+
+.overdue {
+  color: var(--mat-sys-error);
+}
+
 .kicker {
   margin: 0;
   font: var(--mat-sys-label-large);

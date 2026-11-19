@@ -1,4 +1,5 @@
 import { Component, computed, inject } from '@angular/core';
+import { Clock } from '../../core/clock';
 import { CurrentPanel } from './current-panel';
 import { TaskForm } from './task-form';
 import { TaskStore } from './task-store';
@@ -14,6 +15,7 @@ import { TaskItem } from './task-item';
 export class TimerPage {
   protected readonly taskStore = inject(TaskStore);
   protected readonly breakStore = inject(BreakStore);
+  protected readonly clock = inject(Clock);
   protected readonly startBlocked = computed(() =>
     !this.taskStore.activeTask()
       ? !this.breakStore.currentBreak()
