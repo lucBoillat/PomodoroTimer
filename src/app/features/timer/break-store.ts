@@ -43,6 +43,12 @@ export class BreakStore {
     this.events.emit({ type: 'break-ended', kind: currentBreak.kind });
   }
 
+  /** No break, and the counter starts over (the next break is short). No events. */
+  reset(): void {
+    this.breakState.set(null);
+    this.breakNumber.set(0);
+  }
+
   private loadBreak(): Break | null {
     const rawBreak = localStorage.getItem(STORAGE_KEY_BREAK);
     if (rawBreak === null) {

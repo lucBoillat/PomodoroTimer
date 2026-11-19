@@ -1,0 +1,11 @@
+<h2 mat-dialog-title>{{ data.title }}</h2>
+<mat-dialog-content>
+  <p>{{ data.message }}</p>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <!-- Initial focus on the safe option, so Enter right after opening does no harm. -->
+  <button mat-button type="button" [mat-dialog-close]="false" cdkFocusInitial>Abbrechen</button>
+  <button mat-flat-button type="button" class="danger" [mat-dialog-close]="true">
+    {{ data.confirm }}
+  </button>
+</mat-dialog-actions>

@@ -24,6 +24,11 @@ export class SettingsStore {
     }
   }
 
+  /** Back to the defaults. No events: AppReset reports the reset as a whole. */
+  reset(): void {
+    this.state.set(Settings.create());
+  }
+
   private loadSettings(): Settings {
     const rawSettings = localStorage.getItem(STORAGE_KEY);
     if (rawSettings === null) {

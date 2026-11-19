@@ -5,6 +5,7 @@ import { InvalidTransitionError, Task, type TaskProps, type TaskState } from '..
 import { Settings } from '../../domain/settings';
 import { SettingsStore } from '../settings/settings-store';
 import { BreakStore } from './break-store';
+import { SAMPLE_TASKS } from './sample-tasks';
 import { TaskStore } from './task-store';
 
 const STORAGE_KEY = 'pomodoro.tasks';
@@ -724,6 +725,108 @@ describe('TaskStore', () => {
       store.complete('nope');
 
       expect(events).toEqual([]);
+    });
+  });
+
+  describe('loadSamples', () => {
+    it('adds the sample tasks in order', () => {
+      const store = createStore();
+
+      store.loadSamples();
+
+      expect(store.tasks().map((t) => t.title)).toEqual(SAMPLE_TASKS.map((s) => s.title));
+    });
+
+    it('adds most as pending and marks the done ones as done', () => {
+      const store = createStore();
+
+      store.loadSamples();
+
+      expect(store.tasks().map((t) => t.isDone())).toEqual(SAMPLE_TASKS.map((s) => !!s.done));
+      expect(store.tasks().some((t) => t.isPending())).toBe(true);
+    });
+
+    it('appends to the existing tasks instead of replacing them', () => {
+      seed(rawTask('Mine'));
+      const store = createStore();
+
+      store.loadSamples();
+
+      expect(store.tasks()[0].title).toBe('Mine');
+      expect(store.tasks()).toHaveLength(SAMPLE_TASKS.length + 1);
+    });
+
+    it('works while a task is active and leaves it running', () => {
+      seed(rawTask('Active', { status: 'running', endsAt: NOW + MINUTE }));
+      const store = createStore();
+
+      store.loadSamples();
+
+      expect(store.activeTask()?.title).toBe('Active');
+    });
+
+    it('creates new ids every time, so loading twice is fine', () => {
+      const store = createStore();
+
+      store.loadSamples();
+      store.loadSamples();
+
+      const ids = store.tasks().map((t) => t.id);
+      expect(new Set(ids).size).toBe(2 * SAMPLE_TASKS.length);
+    });
+
+    it('emits one sample-data-loaded event with the count, not one per task', () => {
+      const store = createStore();
+      const events: AppEvent[] = [];
+      TestBed.inject(EventBus).on((e) => events.push(e));
+
+      store.loadSamples();
+
+      expect(events).toEqual([{ type: 'sample-data-loaded', count: SAMPLE_TASKS.length }]);
+    });
+
+    it('is saved', () => {
+      const store = createStore();
+
+      store.loadSamples();
+      TestBed.tick();
+
+      expect(stored()).toHaveLength(SAMPLE_TASKS.length);
+    });
+  });
+
+  describe('reset', () => {
+    it('removes all tasks, including an active one', () => {
+      seed(rawTask('A'), rawTask('B', { status: 'running', endsAt: NOW + MINUTE }));
+      const store = createStore();
+
+      store.reset();
+
+      expect(store.tasks()).toEqual([]);
+      expect(store.activeTask()).toBeNull();
+    });
+
+    it('is saved', () => {
+      seed(rawTask('A'));
+      const store = createStore();
+
+      store.reset();
+      TestBed.tick();
+
+      expect(stored()).toEqual([]);
+    });
+
+    it('emits nothing and does not touch the break', () => {
+      seed(rawTask('A', { status: 'running', endsAt: NOW + MINUTE }));
+      const store = createStore();
+      store.complete(byTitle(store, 'A').id); // starts a break
+      const events: AppEvent[] = [];
+      TestBed.inject(EventBus).on((e) => events.push(e));
+
+      store.reset();
+
+      expect(events).toEqual([]);
+      expect(TestBed.inject(BreakStore).currentBreak()).not.toBeNull();
     });
   });
 });

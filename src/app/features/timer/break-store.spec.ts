@@ -311,4 +311,39 @@ describe('BreakStore', () => {
       expect(events).toEqual([]);
     });
   });
+
+  describe('reset', () => {
+    it('removes the break and starts the counter over', () => {
+      const store = createStore();
+      startBreaks(store, 3);
+
+      store.reset();
+
+      expect(store.currentBreak()).toBeNull();
+      expect(store.currentCounter()).toBe(0);
+      expect(startBreaks(store, 1)).toEqual(['short']);
+    });
+
+    it('is saved', () => {
+      const store = createStore();
+      startBreaks(store, 2);
+
+      store.reset();
+      TestBed.tick();
+
+      expect(stored(BREAK_KEY)).toBeNull();
+      expect(stored(COUNTER_KEY)).toBe(0);
+    });
+
+    it('emits nothing, unlike end()', () => {
+      const store = createStore();
+      store.start();
+      const events: AppEvent[] = [];
+      TestBed.inject(EventBus).on((e) => events.push(e));
+
+      store.reset();
+
+      expect(events).toEqual([]);
+    });
+  });
 });

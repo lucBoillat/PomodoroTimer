@@ -3,6 +3,7 @@ import { EventBus } from '../../core/event-bus';
 import { InvalidTransitionError, Task } from '../../domain/task';
 import { SettingsStore } from '../settings/settings-store';
 import { BreakStore } from './break-store';
+import { SAMPLE_TASKS } from './sample-tasks';
 
 const STORAGE_KEY = 'pomodoro.tasks';
 
@@ -25,6 +26,21 @@ export class TaskStore {
     const task = Task.create({ title });
     this.state.update((oldTasks) => [...oldTasks, task]);
     this.events.emit({ type: 'task-added', title: task.title });
+  }
+
+  /** Appends the sample tasks; existing tasks stay. One log event for the whole batch. */
+  loadSamples(): void {
+    const samples = SAMPLE_TASKS.map(({ title, done }) => {
+      const task = Task.create({ title });
+      return done ? task.complete() : task;
+    });
+    this.state.update((oldTasks) => [...oldTasks, ...samples]);
+    this.events.emit({ type: 'sample-data-loaded', count: samples.length });
+  }
+
+  /** Back to an empty list. No events: AppReset reports the reset as a whole. */
+  reset(): void {
+    this.state.set([]);
   }
 
   delete(id: string): void {

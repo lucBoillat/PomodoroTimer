@@ -20,3 +20,14 @@
 } @empty {
   <p>Noch keine Aufgaben.</p>
 }
+
+<div class="page-actions">
+  <button mat-stroked-button type="button" (click)="taskStore.loadSamples()">
+    <mat-icon>dataset</mat-icon>
+    Beispieldaten laden
+  </button>
+  <button mat-button type="button" class="danger" (click)="resetAll()">
+    <mat-icon>restart_alt</mat-icon>
+    Alles zurücksetzen
+  </button>
+</div>

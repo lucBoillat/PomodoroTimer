@@ -176,4 +176,36 @@ describe('SettingsStore', () => {
       expect(events).toEqual([]);
     });
   });
+
+  describe('reset', () => {
+    it('goes back to the defaults', () => {
+      const store = createStore();
+      store.update(Settings.create({ pomodoroMinutes: 50, smallBreakMinutes: 10 }));
+
+      store.reset();
+
+      expect(store.settings().toJSON()).toEqual(DEFAULTS);
+    });
+
+    it('is saved', () => {
+      const store = createStore();
+      store.update(Settings.create({ pomodoroMinutes: 50 }));
+
+      store.reset();
+      TestBed.tick();
+
+      expect(stored()).toEqual(DEFAULTS);
+    });
+
+    it('emits nothing', () => {
+      const store = createStore();
+      store.update(Settings.create({ pomodoroMinutes: 50 }));
+      const events: AppEvent[] = [];
+      TestBed.inject(EventBus).on((e) => events.push(e));
+
+      store.reset();
+
+      expect(events).toEqual([]);
+    });
+  });
 });

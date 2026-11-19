@@ -2,9 +2,14 @@ import { TestBed } from '@angular/core/testing';
 import { HarnessLoader } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonHarness } from '@angular/material/button/testing';
+import { MatDialogHarness } from '@angular/material/dialog/testing';
 import { MatInputHarness } from '@angular/material/input/testing';
+import { LogStore } from '../log/log-store';
+import { SettingsStore } from '../settings/settings-store';
+import { Settings } from '../../domain/settings';
 import type { TaskState } from '../../domain/task';
 import { BreakStore } from './break-store';
+import { SAMPLE_TASKS } from './sample-tasks';
 import { TaskStore } from './task-store';
 import { TimerPage } from './timer-page';
 
@@ -29,12 +34,14 @@ function seedTasks(...tasks: [title: string, state?: TaskState][]): void {
  */
 describe('TimerPage', () => {
   let loader: HarnessLoader;
+  let rootLoader: HarnessLoader; // for overlays such as dialogs
   let host: HTMLElement;
   let taskStore: TaskStore;
 
   async function render(): Promise<void> {
     const fixture = TestBed.createComponent(TimerPage);
     loader = TestbedHarnessEnvironment.loader(fixture);
+    rootLoader = TestbedHarnessEnvironment.documentRootLoader(fixture);
     host = fixture.nativeElement;
     taskStore = TestBed.inject(TaskStore);
     await fixture.whenStable();
@@ -351,6 +358,99 @@ describe('TimerPage', () => {
 
       expect(shownStatusOf('A')).toBe('Erledigt');
       expect(await (await buttonIn('B', 'Starten')).isDisabled()).toBe(false);
+    });
+  });
+
+  describe('Beispieldaten laden', () => {
+    it('adds the sample tasks to the list', async () => {
+      seedTasks(['Mine']);
+      await render();
+
+      await (
+        await loader.getHarness(MatButtonHarness.with({ text: /Beispieldaten laden$/ }))
+      ).click();
+
+      expect(shownTitles()).toEqual(['Mine', ...SAMPLE_TASKS.map((t) => t.title)]);
+    });
+  });
+
+  describe('Alles zurücksetzen', () => {
+    async function openResetDialog(): Promise<MatDialogHarness> {
+      await (
+        await loader.getHarness(MatButtonHarness.with({ text: /Alles zurücksetzen$/ }))
+      ).click();
+      return rootLoader.getHarness(MatDialogHarness);
+    }
+
+    async function clickInDialog(text: string): Promise<void> {
+      await (
+        await rootLoader.getHarness(
+          MatButtonHarness.with({ text, ancestor: 'mat-dialog-container' }),
+        )
+      ).click();
+    }
+
+    /** Waits until the dialog has closed and the page has re-rendered. */
+    async function dialogClosed(): Promise<void> {
+      await vi.waitFor(async () =>
+        expect(await rootLoader.getAllHarnesses(MatDialogHarness)).toHaveLength(0),
+      );
+    }
+
+    beforeEach(() => {
+      seedTasks(['A', { status: 'running', endsAt: Date.now() + MINUTE }], ['B']);
+    });
+
+    it('asks for confirmation first and explains what gets lost', async () => {
+      await render();
+
+      const dialog = await openResetDialog();
+
+      expect(await dialog.getTitleText()).toBe('Alles zurücksetzen?');
+      expect(await dialog.getContentText()).toContain('Einstellungen');
+      expect(shownTitles()).toEqual(['A', 'B']); // nothing happened yet
+    });
+
+    it('changes nothing when cancelled', async () => {
+      await render();
+      await openResetDialog();
+
+      await clickInDialog('Abbrechen');
+      await dialogClosed();
+
+      expect(shownTitles()).toEqual(['A', 'B']);
+      expect(taskStore.activeTask()?.title).toBe('A');
+    });
+
+    it('changes nothing when closed with Escape', async () => {
+      await render();
+      const dialog = await openResetDialog();
+
+      await dialog.close();
+      await dialogClosed();
+
+      expect(shownTitles()).toEqual(['A', 'B']);
+    });
+
+    it('resets everything when confirmed', async () => {
+      await render();
+      TestBed.inject(SettingsStore).update(Settings.create({ pomodoroMinutes: 50 }));
+      await openResetDialog();
+
+      await clickInDialog('Zurücksetzen');
+      await dialogClosed();
+      await vi.waitFor(() => expect(shownTitles()).toEqual([]));
+
+      expect(host.textContent).toContain('Noch keine Aufgaben.');
+      expect(host.querySelector('app-current-panel')?.textContent).toContain(
+        'Keine aktive Aufgabe',
+      );
+      expect(TestBed.inject(SettingsStore).settings().pomodoroMinutes).toBe(25);
+      expect(
+        TestBed.inject(LogStore)
+          .entries()
+          .map((e) => e.event),
+      ).toEqual([{ type: 'app-reset' }]);
     });
   });
 });
