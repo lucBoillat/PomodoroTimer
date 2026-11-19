@@ -45,6 +45,8 @@ export function describeEvent(event: AppEvent): string {
       return event.enabled
         ? 'Desktop-Benachrichtigungen eingeschaltet'
         : 'Desktop-Benachrichtigungen ausgeschaltet';
+    case 'sound-toggled':
+      return event.enabled ? 'Ton eingeschaltet' : 'Ton ausgeschaltet';
     case 'sample-data-loaded':
       return event.count === 1
         ? '1 Beispielaufgabe geladen'
@@ -70,6 +72,7 @@ export const EVENT_ICONS: Record<AppEventType, string> = {
   'break-ended': 'coffee',
   'settings-changed': 'settings',
   'notifications-toggled': 'notifications',
+  'sound-toggled': 'volume_up',
   'sample-data-loaded': 'dataset',
   'app-reset': 'restart_alt',
 };

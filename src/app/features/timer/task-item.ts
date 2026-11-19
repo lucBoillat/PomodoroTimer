@@ -21,7 +21,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { createTaskSchema, Task, type TaskState } from '../../domain/task';
 
 const STATUS_LABELS: Record<TaskState['status'], string> = {
-  pending: 'Wartend',
+  pending: 'Neu',
   running: 'Läuft',
   paused: 'Pausiert',
   done: 'Erledigt',
@@ -92,12 +92,15 @@ export class TaskItem {
   );
 
   /**
-   * Emits the move and keeps the keyboard focus on an arrow afterwards, so the user can
-   * press again. Needed because the list re-renders (the DOM node may be moved, which
-   * drops focus) and because at the top/bottom the pressed arrow becomes disabled.
+   * Emits the move. For keyboard users it also keeps the focus on an arrow afterwards, so they
+   * can press again: the list re-renders (the DOM node may be moved, which drops focus), and at
+   * the top/bottom the pressed arrow becomes disabled.
+   * Mouse users don't need that, and moving focus would pop up the arrow's tooltip.
    */
-  protected move(direction: 'up' | 'down'): void {
+  protected move(direction: 'up' | 'down', event: MouseEvent): void {
     (direction === 'up' ? this.moveUp : this.moveDown).emit();
+    // A click triggered by Enter/Space has detail 0; a real mouse click counts its clicks (≥ 1).
+    if (event.detail !== 0) return;
     afterNextRender(
       () => {
         const canGoOn = direction === 'up' ? this.canMoveUp() : this.canMoveDown();

@@ -1,10 +1,14 @@
 :host {
   display: flex;
   align-items: center;
-  gap: 12px;
+  column-gap: 12px;
   min-height: 56px;
   padding: 4px 8px 4px 16px;
   border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+:host(:last-child) {
+  border-bottom: none;
 }
 
 :host(.active) {
@@ -46,6 +50,44 @@
 .actions {
   display: flex;
   flex-shrink: 0;
+  margin-left: auto;
+}
+
+// Phones: up to six icon buttons don't fit next to the title. Two rows instead:
+//   [handle] title (full width, may wrap)
+//            status badge ............. buttons
+@media (max-width: 599px) {
+  :host {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'handle title title'
+      '.      status actions';
+    padding-block: 8px 4px;
+  }
+
+  .drag-handle {
+    grid-area: handle;
+  }
+
+  .title {
+    grid-area: title;
+    white-space: normal; // the whole row is free, so wrap instead of cutting off
+    overflow-wrap: anywhere;
+  }
+
+  .status {
+    grid-area: status;
+    justify-self: start;
+  }
+
+  .actions {
+    grid-area: actions;
+  }
+
+  .edit {
+    grid-column: 1 / -1;
+  }
 }
 
 .edit {

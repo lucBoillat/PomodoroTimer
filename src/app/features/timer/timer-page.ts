@@ -1,6 +1,6 @@
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { type CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
-import { Component, computed, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, computed, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -28,6 +28,7 @@ export class TimerPage {
   private readonly appReset = inject(AppReset);
   private readonly dialog = inject(MatDialog);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly changeDetector = inject(ChangeDetectorRef);
   protected readonly startBlocked = computed(() =>
     !this.taskStore.activeTask()
       ? !this.breakStore.currentBreak()
@@ -50,6 +51,11 @@ export class TimerPage {
   protected drop(event: CdkDragDrop<unknown, unknown, Task>): void {
     if (event.previousIndex === event.currentIndex) return; // dropped where it was
     this.move(event.item.data, event.currentIndex);
+    // The one deliberate exception to "no manual change detection" in this app:
+    // on drop the CDK puts the dragged element back at its OLD place in the DOM. Without
+    // zone.js, Angular would re-render in the next task, after the browser has painted that
+    // old order once (a visible flash). Rendering this view now closes that gap.
+    this.changeDetector.detectChanges();
   }
 
   protected pauseActive(): void {

@@ -1,10 +1,11 @@
 import { Component } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { routes } from './app.routes';
 
 @Component({
-  imports: [RouterOutlet, MatTabsModule, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, MatIconModule, MatTabsModule, RouterLink, RouterLinkActive],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',

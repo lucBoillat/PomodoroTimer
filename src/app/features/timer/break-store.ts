@@ -1,11 +1,20 @@
-import { effect, inject, Injectable, signal } from '@angular/core';
+import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import { EventBus } from '../../core/event-bus';
-import { Break } from '../../domain/break';
+import { Break, type BreakKind } from '../../domain/break';
 import { SettingsStore } from '../settings/settings-store';
 
 const STORAGE_KEY_BREAK = 'pomodoro.break';
 const STORAGE_KEY_COUNTER = 'pomodoro.break.counter';
-const LONG_BREAK_EVERY = 4;
+export const LONG_BREAK_EVERY = 4;
+
+/** Where the user is in the current round of pomodoros that ends with a long break. */
+export interface BreakCycle {
+  /** Pomodoros finished in this round (0 … length); `length` while the long break runs. */
+  readonly done: number;
+  readonly length: number;
+  /** The kind of the break that follows the next finished pomodoro. */
+  readonly nextBreak: BreakKind;
+}
 
 @Injectable({ providedIn: 'root' })
 export class BreakStore {
@@ -18,6 +27,17 @@ export class BreakStore {
   readonly currentBreak = this.breakState.asReadonly();
   readonly currentCounter = this.breakNumber.asReadonly();
 
+  readonly cycle = computed<BreakCycle>(() => {
+    const count = this.breakNumber();
+    const inLongBreak = this.breakState()?.kind === 'long';
+    return {
+      // The long break is break no. 4, 8, …: count % 4 is 0 then, but the round is complete.
+      done: inLongBreak ? LONG_BREAK_EVERY : count % LONG_BREAK_EVERY,
+      length: LONG_BREAK_EVERY,
+      nextBreak: (count + 1) % LONG_BREAK_EVERY === 0 ? 'long' : 'short',
+    };
+  });
+
   constructor() {
     effect(() => localStorage.setItem(STORAGE_KEY_BREAK, JSON.stringify(this.currentBreak())));
     effect(() => localStorage.setItem(STORAGE_KEY_COUNTER, JSON.stringify(this.currentCounter())));
@@ -25,7 +45,7 @@ export class BreakStore {
 
   start(): void {
     this.breakNumber.update((oldValue) => oldValue + 1);
-    const breakType = this.breakNumber() % LONG_BREAK_EVERY === 0 ? 'long' : 'short';
+    const breakType: BreakKind = this.breakNumber() % LONG_BREAK_EVERY === 0 ? 'long' : 'short';
     const breakMinutes =
       breakType === 'long'
         ? this.settingsStore.settings().largeBreakMinutes

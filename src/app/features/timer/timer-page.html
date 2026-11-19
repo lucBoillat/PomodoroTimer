@@ -2,6 +2,7 @@
   [task]="taskStore.activeTask()"
   [activeBreak]="breakStore.currentBreak()"
   [now]="clock.now()"
+  [cycle]="breakStore.cycle()"
   (pauseTask)="pauseActive()"
   (resumeTask)="resumeActive()"
   (complete)="completeActive()"
@@ -13,10 +14,12 @@
 } @else {
   <!-- The active task is not listed here: the panel above shows it. -->
   <section class="section" aria-labelledby="queue-heading">
-    <h2 id="queue-heading">Warteschlange ({{ taskStore.queue().length }})</h2>
+    <h2 id="queue-heading" class="section-heading">
+      Warteschlange ({{ taskStore.queue().length }})
+    </h2>
     @if (taskStore.queue().length > 0) {
       <div
-        class="task-list queue"
+        class="card list-card task-list queue"
         role="list"
         cdkDropList
         cdkDropListLockAxis="y"
@@ -45,14 +48,16 @@
         }
       </div>
     } @else {
-      <p class="empty">Keine wartenden Aufgaben.</p>
+      <p class="empty">Keine neuen Aufgaben.</p>
     }
   </section>
 
   @if (taskStore.doneTasks().length > 0) {
     <section class="section" aria-labelledby="done-heading">
-      <h2 id="done-heading">Erledigt ({{ taskStore.doneTasks().length }})</h2>
-      <div class="task-list done-list" role="list">
+      <h2 id="done-heading" class="section-heading">
+        Erledigt ({{ taskStore.doneTasks().length }})
+      </h2>
+      <div class="card list-card task-list done-list" role="list">
         @for (task of taskStore.doneTasks(); track task.id) {
           <app-task-item
             role="listitem"

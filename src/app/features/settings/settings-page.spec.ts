@@ -4,7 +4,10 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatFormFieldHarness } from '@angular/material/form-field/testing';
 import { MatInputHarness } from '@angular/material/input/testing';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSlideToggleHarness } from '@angular/material/slide-toggle/testing';
+import { AUDIO_CONTEXT_FACTORY } from '../../core/alarm-sound';
+import { createFakeAudio } from '../../../testing/fake-audio-context';
 import {
   createFakeNotificationApi,
   type FakeNotificationApi,
@@ -34,7 +37,7 @@ const FIELD_NAMES = Object.keys(LABELS) as FieldName[];
 
 const TASKS_KEY = 'pomodoro.tasks';
 const BREAK_KEY = 'pomodoro.break';
-const LOCKED_MESSAGE = 'Die Einstellungen sind gesperrt solange eine Aufgabe oder Pause läuft.';
+const LOCKED_MESSAGE = 'Die Einstellungen sind gesperrt, solange eine Aufgabe oder Pause läuft.';
 
 /** Puts tasks with the given states into storage, so the TaskStore loads them. */
 function seedTasks(...states: TaskState[]): void {
@@ -138,6 +141,26 @@ describe('SettingsPage', () => {
   });
 
   describe('saving', () => {
+    it('confirms the save with a snackbar that closes by itself', async () => {
+      await render();
+      const open = vi.spyOn(TestBed.inject(MatSnackBar), 'open');
+
+      await type('pomodoroMinutes', '45');
+      await submit();
+
+      expect(open).toHaveBeenCalledWith('Einstellungen gespeichert', undefined, { duration: 3000 });
+    });
+
+    it('shows no snackbar when the input is invalid', async () => {
+      await render();
+      const open = vi.spyOn(TestBed.inject(MatSnackBar), 'open');
+
+      await type('pomodoroMinutes', '0');
+      await submit();
+
+      expect(open).not.toHaveBeenCalled();
+    });
+
     it('saves valid changes to the store and to localStorage', async () => {
       await render();
 
@@ -435,6 +458,61 @@ describe('SettingsPage', () => {
 
       expect(await (await toggle()).isDisabled()).toBe(false);
       await vi.waitFor(async () => expect(await (await toggle()).isChecked()).toBe(true));
+    });
+  });
+
+  describe('sound', () => {
+    function soundToggle(): Promise<MatSlideToggleHarness> {
+      return loader.getHarness(MatSlideToggleHarness.with({ label: 'Ton bei Ablauf' }));
+    }
+
+    function soundHint(): string | undefined {
+      return host.querySelector('#sound-hint')?.textContent?.trim();
+    }
+
+    beforeEach(() => {
+      // The test DOM has no Web Audio; a later configureTestingModule can still replace this.
+      TestBed.configureTestingModule({
+        providers: [{ provide: AUDIO_CONTEXT_FACTORY, useValue: createFakeAudio().factory }],
+      });
+    });
+
+    it('is on by default and can be switched off and on', async () => {
+      await render();
+      const toggle = await soundToggle();
+      expect(await toggle.isChecked()).toBe(true);
+
+      await toggle.toggle();
+      expect(await toggle.isChecked()).toBe(false);
+      expect(localStorage.getItem('pomodoro.sound')).toBe('false');
+
+      await toggle.toggle();
+      expect(await toggle.isChecked()).toBe(true);
+    });
+
+    it('explains what it does', async () => {
+      await render();
+
+      expect(soundHint()).toBe(
+        'Spielt einen kurzen Ton, wenn eine Aufgabe oder Pause abgelaufen ist.',
+      );
+    });
+
+    it('is disabled and says why when the browser cannot play sounds', async () => {
+      TestBed.configureTestingModule({
+        providers: [{ provide: AUDIO_CONTEXT_FACTORY, useValue: null }],
+      });
+      await render();
+
+      expect(await (await soundToggle()).isDisabled()).toBe(true);
+      expect(soundHint()).toBe('Dein Browser kann keine Töne abspielen.');
+    });
+
+    it('stays usable while the settings form is locked', async () => {
+      seedTasks({ status: 'running', endsAt: Date.now() + 60_000 });
+      await render();
+
+      expect(await (await soundToggle()).isDisabled()).toBe(false);
     });
   });
 });

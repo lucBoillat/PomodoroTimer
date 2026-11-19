@@ -307,7 +307,7 @@ describe('TimerPage', () => {
       await (await panelButton('Erledigt')).click();
 
       expect(shownStatusOf('Active')).toBe('Erledigt');
-      expect(shownStatusOf('Waiting')).toBe('Wartend');
+      expect(shownStatusOf('Waiting')).toBe('Neu');
     });
 
     it('ends the break and unblocks starting', async () => {
@@ -497,7 +497,7 @@ describe('TimerPage', () => {
       seedTasks(['Done', { status: 'done' }]);
       await render();
 
-      expect(host.textContent).toContain('Keine wartenden Aufgaben.');
+      expect(host.textContent).toContain('Keine neuen Aufgaben.');
       expect(host.textContent).not.toContain('Noch keine Aufgaben.');
     });
 
@@ -572,13 +572,21 @@ describe('TimerPage', () => {
       expect(queueTitles()).toEqual(['A', 'C', 'B']);
     });
 
-    it('lets the user press the same arrow repeatedly (focus stays on it)', async () => {
+    it('lets keyboard users press the same arrow repeatedly (focus stays on it)', async () => {
       await renderQueue('A', 'B', 'C');
+      /** Enter on the focused element: a click with detail 0. */
+      const pressEnter = async (): Promise<void> => {
+        document.activeElement?.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, detail: 0 }),
+        );
+        await fixture.whenStable();
+      };
 
-      await (await buttonIn('A', 'Nach unten verschieben')).click();
-      await fixture.whenStable();
-      (document.activeElement as HTMLElement).click();
-      await fixture.whenStable();
+      itemElement('A')
+        ?.querySelector<HTMLElement>('[aria-label="Nach unten verschieben"]')
+        ?.focus();
+      await pressEnter();
+      await pressEnter();
 
       expect(queueTitles()).toEqual(['B', 'C', 'A']);
       // A is at the bottom now, so focus moved to its "up" arrow.
@@ -640,6 +648,22 @@ describe('TimerPage', () => {
         expect(announce).toHaveBeenCalledWith('„D“ auf Position 2 von 4 verschoben');
       });
 
+      it('renders the new order right away, without waiting for the next task', async () => {
+        await renderQueue('A', 'B', 'C');
+        const task = taskStore.queue()[0];
+
+        fixture.debugElement
+          .query(By.directive(CdkDropList))
+          .triggerEventHandler('cdkDropListDropped', {
+            previousIndex: 0,
+            currentIndex: 2,
+            item: { data: task },
+          });
+        // Deliberately no `await fixture.whenStable()`: the DOM must already be updated.
+
+        expect(queueTitles()).toEqual(['B', 'C', 'A']);
+      });
+
       it('does nothing when dropped where it was', async () => {
         await renderQueue('A', 'B');
 
@@ -649,6 +673,25 @@ describe('TimerPage', () => {
         expect(announce).not.toHaveBeenCalled();
         expect(TestBed.inject(LogStore).entries()).toEqual([]);
       });
+    });
+  });
+
+  describe('break cycle', () => {
+    it('counts a finished pomodoro in the panel', async () => {
+      seedTasks(['A', { status: 'running', endsAt: Date.now() + MINUTE }]);
+      await render();
+      expect(host.querySelectorAll('app-current-panel .dot.filled')).toHaveLength(0);
+
+      await (
+        await loader.getHarness(
+          MatButtonHarness.with({ text: /Erledigt$/, ancestor: 'app-current-panel' }),
+        )
+      ).click();
+
+      expect(host.querySelectorAll('app-current-panel .dot.filled')).toHaveLength(1);
+      expect(host.querySelector('app-current-panel .cycle-text')?.textContent?.trim()).toBe(
+        'Lange Pause nach 3 Pomodoros',
+      );
     });
   });
 });

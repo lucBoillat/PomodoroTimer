@@ -83,6 +83,37 @@ describe('TaskForm', () => {
       expect(await errors()).toEqual([]);
     });
 
+    it('shows no error after merely clicking into the empty field and out again', async () => {
+      const field = await input();
+
+      await field.focus();
+      await field.blur();
+
+      expect(await errors()).toEqual([]);
+    });
+
+    it('does show an error for typed spaces: that is a real (empty) attempt', async () => {
+      const field = await input();
+
+      await field.setValue('   ');
+      await field.blur();
+
+      expect(await errors()).toEqual(['Darf nicht leer sein']);
+    });
+
+    it('flags a too long title while typing, before leaving the field', async () => {
+      await (await input()).setValue('x'.repeat(TASK_TITLE_MAX_LENGTH + 1));
+
+      expect(await errors()).toEqual([`Höchstens ${TASK_TITLE_MAX_LENGTH} Zeichen`]);
+    });
+
+    it('explains an empty submit instead of silently doing nothing', async () => {
+      await submit();
+
+      expect(await errors()).toEqual(['Darf nicht leer sein']);
+      expect(added).toEqual([]);
+    });
+
     it.each([
       ['empty', '', 'Darf nicht leer sein'],
       ['only whitespace', '   ', 'Darf nicht leer sein'],

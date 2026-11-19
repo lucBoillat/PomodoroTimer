@@ -37,7 +37,7 @@
         aria-label="Nach oben verschieben"
         matTooltip="Nach oben verschieben"
         [disabled]="!canMoveUp()"
-        (click)="move('up')"
+        (click)="move('up', $event)"
       >
         <mat-icon>arrow_upward</mat-icon>
       </button>
@@ -48,7 +48,7 @@
         aria-label="Nach unten verschieben"
         matTooltip="Nach unten verschieben"
         [disabled]="!canMoveDown()"
-        (click)="move('down')"
+        (click)="move('down', $event)"
       >
         <mat-icon>arrow_downward</mat-icon>
       </button>

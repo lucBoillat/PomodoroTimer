@@ -48,4 +48,14 @@
       </button>
     </div>
   }
+
+  <div class="cycle">
+    <!-- The dots are decoration; the text next to them says the same for screen readers. -->
+    <span class="dots" aria-hidden="true">
+      @for (filled of cycleDots(); track $index) {
+        <span class="dot" [class.filled]="filled"></span>
+      }
+    </span>
+    <span class="cycle-text">{{ cycleText() }}</span>
+  </div>
 </section>

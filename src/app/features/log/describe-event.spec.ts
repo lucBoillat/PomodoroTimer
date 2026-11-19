@@ -25,6 +25,8 @@ describe('describeEvent', () => {
     ],
     [{ type: 'notifications-toggled', enabled: true }, 'Desktop-Benachrichtigungen eingeschaltet'],
     [{ type: 'notifications-toggled', enabled: false }, 'Desktop-Benachrichtigungen ausgeschaltet'],
+    [{ type: 'sound-toggled', enabled: true }, 'Ton eingeschaltet'],
+    [{ type: 'sound-toggled', enabled: false }, 'Ton ausgeschaltet'],
     [{ type: 'sample-data-loaded', count: 1 }, '1 Beispielaufgabe geladen'],
     [{ type: 'sample-data-loaded', count: 5 }, '5 Beispielaufgaben geladen'],
     [{ type: 'app-reset' }, 'Alles zurückgesetzt'],

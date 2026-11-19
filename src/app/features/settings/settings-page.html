@@ -1,30 +1,33 @@
-<form [formRoot]="settingsForm">
-  <mat-form-field>
-    <mat-label>Arbeitszeit (Minuten)</mat-label>
-    <input matInput type="number" [formField]="settingsForm.pomodoroMinutes" />
-    <mat-hint>1–200 Minuten</mat-hint>
-    @for (error of settingsForm.pomodoroMinutes().errors(); track $index) {
-      <mat-error>{{ error.message }}</mat-error>
-    }
-  </mat-form-field>
+<form class="card" [formRoot]="settingsForm" aria-labelledby="times-heading">
+  <h2 id="times-heading" class="section-heading">Zeiten</h2>
+  <div class="fields">
+    <mat-form-field>
+      <mat-label>Arbeitszeit (Minuten)</mat-label>
+      <input matInput type="number" [formField]="settingsForm.pomodoroMinutes" />
+      <mat-hint>1–200 Minuten</mat-hint>
+      @for (error of settingsForm.pomodoroMinutes().errors(); track $index) {
+        <mat-error>{{ error.message }}</mat-error>
+      }
+    </mat-form-field>
 
-  <mat-form-field>
-    <mat-label>Kurze Pause (Minuten)</mat-label>
-    <input matInput type="number" [formField]="settingsForm.smallBreakMinutes" />
-    <mat-hint>1–30 Minuten</mat-hint>
-    @for (error of settingsForm.smallBreakMinutes().errors(); track $index) {
-      <mat-error>{{ error.message }}</mat-error>
-    }
-  </mat-form-field>
+    <mat-form-field>
+      <mat-label>Kurze Pause (Minuten)</mat-label>
+      <input matInput type="number" [formField]="settingsForm.smallBreakMinutes" />
+      <mat-hint>1–30 Minuten</mat-hint>
+      @for (error of settingsForm.smallBreakMinutes().errors(); track $index) {
+        <mat-error>{{ error.message }}</mat-error>
+      }
+    </mat-form-field>
 
-  <mat-form-field>
-    <mat-label>Lange Pause (Minuten)</mat-label>
-    <input matInput type="number" [formField]="settingsForm.largeBreakMinutes" />
-    <mat-hint>1–90 Minuten</mat-hint>
-    @for (error of settingsForm.largeBreakMinutes().errors(); track $index) {
-      <mat-error>{{ error.message }}</mat-error>
-    }
-  </mat-form-field>
+    <mat-form-field>
+      <mat-label>Lange Pause (Minuten)</mat-label>
+      <input matInput type="number" [formField]="settingsForm.largeBreakMinutes" />
+      <mat-hint>1–90 Minuten</mat-hint>
+      @for (error of settingsForm.largeBreakMinutes().errors(); track $index) {
+        <mat-error>{{ error.message }}</mat-error>
+      }
+    </mat-form-field>
+  </div>
 
   @for (reason of settingsForm().disabledReasons(); track $index) {
     <p class="locked-hint">{{ reason.message }}</p>
@@ -32,8 +35,8 @@
   <button mat-flat-button type="submit" [disabled]="settingsForm().disabled()">Speichern</button>
 </form>
 
-<section class="notifications" aria-labelledby="notifications-heading">
-  <h2 id="notifications-heading">Benachrichtigungen</h2>
+<section class="card notifications" aria-labelledby="notifications-heading">
+  <h2 id="notifications-heading" class="section-heading">Benachrichtigungen</h2>
   <mat-slide-toggle
     [checked]="notifications.enabled()"
     [disabled]="notificationsUnavailable()"
@@ -43,4 +46,20 @@
     Desktop-Benachrichtigungen
   </mat-slide-toggle>
   <p id="notifications-hint" class="hint">{{ notificationHint() }}</p>
+
+  <mat-slide-toggle
+    [checked]="sound.enabled()"
+    [disabled]="!sound.supported"
+    aria-describedby="sound-hint"
+    (change)="sound.setEnabled($event.checked)"
+  >
+    Ton bei Ablauf
+  </mat-slide-toggle>
+  <p id="sound-hint" class="hint">
+    {{
+      sound.supported
+        ? 'Spielt einen kurzen Ton, wenn eine Aufgabe oder Pause abgelaufen ist.'
+        : 'Dein Browser kann keine Töne abspielen.'
+    }}
+  </p>
 </section>

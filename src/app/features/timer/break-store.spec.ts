@@ -346,4 +346,69 @@ describe('BreakStore', () => {
       expect(events).toEqual([]);
     });
   });
+
+  describe('cycle', () => {
+    it('starts a fresh round: nothing done, the next break is short', () => {
+      expect(createStore().cycle()).toEqual({ done: 0, length: 4, nextBreak: 'short' });
+    });
+
+    it.each([
+      [1, 1, 'short'],
+      [2, 2, 'short'],
+      [3, 3, 'long'], // the 4th pomodoro of the round ends with the long break
+    ] as const)('after %i breaks: %i done, next break %s', (breaks, done, nextBreak) => {
+      const store = createStore();
+
+      startBreaks(store, breaks);
+
+      expect(store.cycle()).toEqual({ done, length: 4, nextBreak });
+    });
+
+    it('shows the round as complete while the long break runs', () => {
+      const store = createStore();
+
+      startBreaks(store, 4);
+
+      expect(store.currentBreak()?.kind).toBe('long');
+      expect(store.cycle()).toEqual({ done: 4, length: 4, nextBreak: 'short' });
+    });
+
+    it('starts the next round once the long break has ended', () => {
+      const store = createStore();
+      startBreaks(store, 4);
+
+      store.end();
+
+      expect(store.cycle()).toEqual({ done: 0, length: 4, nextBreak: 'short' });
+    });
+
+    it('agrees with the breaks that actually start, over two rounds', () => {
+      const store = createStore();
+      const predicted: string[] = [];
+      const actual: string[] = [];
+
+      for (let i = 0; i < 8; i++) {
+        predicted.push(store.cycle().nextBreak);
+        actual.push(...startBreaks(store, 1));
+        store.end();
+      }
+
+      expect(predicted).toEqual(actual);
+    });
+
+    it('comes back after a reload', () => {
+      localStorage.setItem(COUNTER_KEY, '6');
+
+      expect(createStore().cycle()).toEqual({ done: 2, length: 4, nextBreak: 'short' });
+    });
+
+    it('starts over after a reset', () => {
+      const store = createStore();
+      startBreaks(store, 3);
+
+      store.reset();
+
+      expect(store.cycle().done).toBe(0);
+    });
+  });
 });

@@ -1,5 +1,5 @@
 <header class="toolbar">
-  <h2>Ereignisse</h2>
+  <h2 class="section-heading">Ereignisse</h2>
   <button
     mat-stroked-button
     type="button"
@@ -12,7 +12,7 @@
 </header>
 
 @if (rows().length > 0) {
-  <ol class="log" aria-label="Ereignisse, neueste zuerst">
+  <ol class="card list-card log" aria-label="Ereignisse, neueste zuerst">
     @for (row of rows(); track row.id) {
       <li [class.alert]="row.alert">
         <mat-icon aria-hidden="true">{{ row.icon }}</mat-icon>

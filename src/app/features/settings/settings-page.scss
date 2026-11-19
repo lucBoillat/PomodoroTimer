@@ -1,13 +1,33 @@
 :host {
-  display: block;
-  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 form {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-width: 320px;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px 16px;
+
+  // Tablets and up: the three durations side by side.
+  @media (min-width: 600px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  mat-form-field {
+    width: 100%;
+  }
+}
+
+.locked-hint {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
 }
 
 button[type='submit'] {
@@ -15,12 +35,11 @@ button[type='submit'] {
 }
 
 .notifications {
-  max-width: 320px;
-  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
 
-  h2 {
-    margin: 0 0 8px;
-    font: var(--mat-sys-title-medium);
+  mat-slide-toggle:not(:first-of-type) {
+    margin-top: 16px;
   }
 
   .hint {

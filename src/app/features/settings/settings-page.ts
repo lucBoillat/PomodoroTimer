@@ -1,4 +1,5 @@
 import { Component, computed, inject, linkedSignal } from '@angular/core';
+import { AlarmSound } from '../../core/alarm-sound';
 import { DesktopNotifications } from '../../core/desktop-notifications';
 import { Settings, settingsSchema } from '../../domain/settings';
 import {
@@ -11,6 +12,7 @@ import {
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { type MatSlideToggleChange, MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { SettingsStore } from './settings-store';
 import { TaskStore } from '../timer/task-store';
@@ -33,6 +35,7 @@ export class SettingsPage {
   private readonly settingsStore = inject(SettingsStore);
   private readonly taskStore = inject(TaskStore);
   private readonly breakStore = inject(BreakStore);
+  private readonly snackBar = inject(MatSnackBar);
   protected readonly model = linkedSignal(() => this.settingsStore.settings().toJSON());
   protected readonly settingsForm = form(
     this.model,
@@ -40,7 +43,7 @@ export class SettingsPage {
       disabled(path, {
         when: () =>
           this.taskStore.activeTask() !== null || this.breakStore.currentBreak() !== null
-            ? 'Die Einstellungen sind gesperrt solange eine Aufgabe oder Pause läuft.'
+            ? 'Die Einstellungen sind gesperrt, solange eine Aufgabe oder Pause läuft.'
             : false,
       });
       validateStandardSchema(path, settingsSchema);
@@ -50,6 +53,8 @@ export class SettingsPage {
         action: async (field) => {
           const settings = Settings.create(field().value());
           this.settingsStore.update(settings);
+          // Confirmation only; it closes by itself, unlike the alarm snackbars.
+          this.snackBar.open('Einstellungen gespeichert', undefined, { duration: 3000 });
         },
       },
     },
@@ -57,6 +62,8 @@ export class SettingsPage {
 
   // Desktop notifications are a preference, not a timer setting: not part of the locked form.
   protected readonly notifications = inject(DesktopNotifications);
+
+  protected readonly sound = inject(AlarmSound);
 
   protected readonly notificationsUnavailable = computed(() => {
     const permission = this.notifications.permission();

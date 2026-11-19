@@ -116,7 +116,7 @@ describe('TaskItem', () => {
     });
 
     it.each([
-      ['pending', pending, 'Wartend'],
+      ['pending', pending, 'Neu'],
       ['running', running, 'Läuft'],
       ['paused', paused, 'Pausiert'],
       ['done', done, 'Erledigt'],
@@ -408,12 +408,19 @@ describe('TaskItem', () => {
         });
       }
 
+      /** Enter/Space on a focused button: the browser fires a click with detail 0. */
+      async function pressWithKeyboard(name: 'up' | 'down'): Promise<void> {
+        const arrow = host.querySelector<HTMLButtonElement>(`[aria-label="${LABEL[name]}"]`);
+        arrow?.focus();
+        arrow?.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+        await fixture.whenStable();
+      }
+
       it('stays on the pressed arrow while it can go on', async () => {
         await renderInQueue(true, true);
         parentUpdatesOn('moveUp', { canMoveUp: true, canMoveDown: true });
 
-        await click('up');
-        await fixture.whenStable();
+        await pressWithKeyboard('up');
 
         expect(focusedLabel()).toBe(LABEL.up);
       });
@@ -422,8 +429,7 @@ describe('TaskItem', () => {
         await renderInQueue(true, true);
         parentUpdatesOn('moveUp', { canMoveUp: false, canMoveDown: true });
 
-        await click('up');
-        await fixture.whenStable();
+        await pressWithKeyboard('up');
 
         expect(focusedLabel()).toBe(LABEL.down);
       });
@@ -432,10 +438,20 @@ describe('TaskItem', () => {
         await renderInQueue(true, true);
         parentUpdatesOn('moveDown', { canMoveUp: true, canMoveDown: false });
 
-        await click('down');
-        await fixture.whenStable();
+        await pressWithKeyboard('down');
 
         expect(focusedLabel()).toBe(LABEL.up);
+      });
+
+      it('leaves focus alone after a mouse click (moving it would pop up a tooltip)', async () => {
+        await renderInQueue(true, true);
+        parentUpdatesOn('moveUp', { canMoveUp: false, canMoveDown: true });
+
+        await click('up'); // the harness clicks like a mouse: detail 1
+        await fixture.whenStable();
+
+        expect(focusedLabel()).not.toBe(LABEL.down);
+        expect(emitted.moveUp).toBe(1);
       });
     });
   });

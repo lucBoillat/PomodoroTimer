@@ -4,6 +4,7 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { Break } from '../../domain/break';
 import { Task } from '../../domain/task';
+import type { BreakCycle } from './break-store';
 import { CurrentPanel } from './current-panel';
 
 const MINUTE = 60_000;
@@ -326,6 +327,64 @@ describe('CurrentPanel', () => {
       await render(running('Buy milk'));
 
       expect(host.querySelector('h2')?.textContent?.trim()).toBe('Buy milk');
+    });
+  });
+
+  describe('break cycle', () => {
+    async function renderCycle(
+      cycle: BreakCycle,
+      task: Task | null = null,
+      activeBreak: Break | null = null,
+    ): Promise<void> {
+      await render(task, activeBreak);
+      fixture.componentRef.setInput('cycle', cycle);
+      await fixture.whenStable();
+    }
+
+    const filledDots = (): number => host.querySelectorAll('.dot.filled').length;
+    const allDots = (): number => host.querySelectorAll('.dot').length;
+
+    it('shows one dot per pomodoro of the round, filled for the finished ones', async () => {
+      await renderCycle({ done: 2, length: 4, nextBreak: 'short' }, running());
+
+      expect(allDots()).toBe(4);
+      expect(filledDots()).toBe(2);
+    });
+
+    it.each([
+      [0, 'Lange Pause nach 4 Pomodoros'],
+      [1, 'Lange Pause nach 3 Pomodoros'],
+      [2, 'Lange Pause nach 2 Pomodoros'],
+    ])('says how far the long break is (%i done)', async (done, message) => {
+      await renderCycle({ done, length: 4, nextBreak: 'short' });
+
+      expect(text('.cycle-text')).toBe(message);
+    });
+
+    it('announces the long break as next', async () => {
+      await renderCycle({ done: 3, length: 4, nextBreak: 'long' }, running());
+
+      expect(text('.cycle-text')).toBe('Als Nächstes: lange Pause');
+    });
+
+    it('celebrates the finished round during the long break', async () => {
+      await renderCycle({ done: 4, length: 4, nextBreak: 'short' }, null, longBreak());
+
+      expect(text('.cycle-text')).toBe('Runde geschafft – lange Pause');
+      expect(filledDots()).toBe(4);
+    });
+
+    it('is shown even when nothing is active', async () => {
+      await renderCycle({ done: 1, length: 4, nextBreak: 'short' });
+
+      expect(text('.empty')).toBe('Keine aktive Aufgabe');
+      expect(text('.cycle-text')).toBe('Lange Pause nach 3 Pomodoros');
+    });
+
+    it('hides the dots from screen readers; the text carries the information', async () => {
+      await renderCycle({ done: 1, length: 4, nextBreak: 'short' });
+
+      expect(host.querySelector('.dots')?.getAttribute('aria-hidden')).toBe('true');
     });
   });
 });

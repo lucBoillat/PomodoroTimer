@@ -1,0 +1,57 @@
+// Content width: comfortable to read on desktop instead of spanning the whole screen.
+$max-width: 720px;
+
+:host {
+  display: block;
+  min-height: 100%;
+}
+
+.container {
+  width: 100%;
+  max-width: $max-width;
+  margin-inline: auto;
+  padding-inline: 16px;
+
+  @media (min-width: 600px) {
+    padding-inline: 24px;
+  }
+}
+
+// Phones: the tab bar uses the full width (the tabs need every pixel).
+nav.container {
+  @media (max-width: 599px) {
+    padding-inline: 0;
+  }
+}
+
+.app-header {
+  // Stays visible while scrolling, so the tabs are always one tap away.
+  position: sticky;
+  top: 0;
+  z-index: 10; // above the content, below overlays (snackbars, dialogs, drag preview)
+  background: var(--mat-sys-surface-container);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.app-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding-top: 12px;
+
+  @media (min-width: 600px) {
+    padding-top: 16px;
+  }
+
+  font: var(--mat-sys-title-large);
+  color: var(--mat-sys-primary);
+}
+
+.content {
+  padding-block: 24px 48px;
+
+  @media (min-width: 600px) {
+    padding-block: 32px 64px;
+  }
+}

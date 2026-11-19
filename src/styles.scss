@@ -36,4 +36,60 @@ body {
   margin: 0;
   height: 100%;
 }
-/* You can add global styles to this file, and also import other style files */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+// Shared look for the content blocks of every page. Global on purpose: one definition
+// instead of the same rules in each component's styles.
+.card {
+  padding: 16px;
+  border-radius: var(--mat-sys-corner-large);
+  background: var(--mat-sys-surface-container-low);
+
+  @media (min-width: 600px) {
+    padding: 24px;
+  }
+}
+
+// A card whose content (a list) brings its own padding.
+.card.list-card {
+  padding: 0;
+  overflow: hidden; // keeps the rows inside the rounded corners
+}
+
+.section-heading {
+  margin: 0 0 12px;
+  font: var(--mat-sys-title-medium);
+}
+
+// Drag and drop: the other rows glide aside while a task is dragged.
+// Keyed to the drag preview (which the CDK adds to <body> and removes synchronously on drop),
+// NOT to `.cdk-drop-list-dragging`: that class is a host binding and, without zone.js, only
+// goes away at the next change detection. Until then the transition would animate the CDK
+// resetting the rows on drop, and the rows visibly slide over each other ("flash").
+// Global because the preview lives outside the component.
+body:has(.cdk-drag-preview) .queue app-task-item:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// --- Small adjustments to Material internals (no token exists for these) ---
+
+// Phones: three tabs at Material's 24px side padding don't fit 360–390px and the bar starts
+// paginating with arrows. Less padding keeps all three tabs visible.
+@media (max-width: 599px) {
+  .app-header .mdc-tab {
+    padding-inline: 12px;
+  }
+}
+
+// The slide toggle puts its label right against the switch.
+.mat-mdc-slide-toggle .mdc-label {
+  padding-left: 12px;
+}
