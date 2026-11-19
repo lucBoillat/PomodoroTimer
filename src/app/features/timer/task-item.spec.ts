@@ -24,6 +24,8 @@ const LABEL = {
   remove: 'Löschen',
   save: 'Speichern',
   cancel: 'Abbrechen',
+  up: 'Nach oben verschieben',
+  down: 'Nach unten verschieben',
 } as const;
 type ButtonName = keyof typeof LABEL;
 
@@ -33,7 +35,14 @@ describe('TaskItem', () => {
   let host: HTMLElement;
 
   // Everything the component emitted, per output.
-  let emitted: { start: number; complete: number; remove: number; rename: string[] };
+  let emitted: {
+    start: number;
+    complete: number;
+    remove: number;
+    rename: string[];
+    moveUp: number;
+    moveDown: number;
+  };
 
   async function render(task: Task, startBlocked: string | null = null): Promise<void> {
     fixture = TestBed.createComponent(TaskItem);
@@ -42,12 +51,14 @@ describe('TaskItem', () => {
     loader = TestbedHarnessEnvironment.loader(fixture);
     host = fixture.nativeElement;
 
-    emitted = { start: 0, complete: 0, remove: 0, rename: [] };
+    emitted = { start: 0, complete: 0, remove: 0, rename: [], moveUp: 0, moveDown: 0 };
     const item = fixture.componentInstance;
     item.start.subscribe(() => emitted.start++);
     item.complete.subscribe(() => emitted.complete++);
     item.remove.subscribe(() => emitted.remove++);
     item.rename.subscribe((title) => emitted.rename.push(title));
+    item.moveUp.subscribe(() => emitted.moveUp++);
+    item.moveDown.subscribe(() => emitted.moveDown++);
 
     await fixture.whenStable();
   }
@@ -325,6 +336,107 @@ describe('TaskItem', () => {
       await click('edit');
 
       expect(await (await titleInput()).getValue()).toBe('Renamed');
+    });
+  });
+
+  describe('reordering', () => {
+    async function renderInQueue(canMoveUp: boolean, canMoveDown: boolean): Promise<void> {
+      await render(pending());
+      fixture.componentRef.setInput('canMoveUp', canMoveUp);
+      fixture.componentRef.setInput('canMoveDown', canMoveDown);
+      await fixture.whenStable();
+    }
+
+    const handle = (): Element | null => host.querySelector('.drag-handle');
+    const focusedLabel = (): string | null =>
+      document.activeElement?.getAttribute('aria-label') ?? null;
+
+    it('shows no arrows and no handle by default (done list, single task, other states)', async () => {
+      await render(pending());
+
+      expect(await visibleButtons()).not.toContain('up');
+      expect(await visibleButtons()).not.toContain('down');
+      expect(handle()).toBeNull();
+    });
+
+    it('shows both arrows and a drag handle in the middle of the queue', async () => {
+      await renderInQueue(true, true);
+
+      expect(await visibleButtons()).toEqual(['start', 'complete', 'edit', 'remove', 'up', 'down']);
+      expect(await (await button('up')).isDisabled()).toBe(false);
+      expect(await (await button('down')).isDisabled()).toBe(false);
+      expect(handle()).not.toBeNull();
+    });
+
+    it('hides the drag handle from screen readers (they use the arrows)', async () => {
+      await renderInQueue(true, true);
+
+      expect(handle()?.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it.each([
+      ['at the top', false, true, 'up'],
+      ['at the bottom', true, false, 'down'],
+    ] as const)('disables the arrow that leads nowhere %s', async (_label, up, down, disabled) => {
+      await renderInQueue(up, down);
+
+      expect(await (await button(disabled)).isDisabled()).toBe(true);
+      expect(await (await button(disabled === 'up' ? 'down' : 'up')).isDisabled()).toBe(false);
+    });
+
+    it.each([
+      ['up', 'moveUp'],
+      ['down', 'moveDown'],
+    ] as const)('emits %s', async (name, output) => {
+      await renderInQueue(true, true);
+
+      await click(name);
+
+      expect(emitted[output]).toBe(1);
+    });
+
+    describe('focus after a move', () => {
+      /** Plays the parent: the queue changes as soon as the item reports a move. */
+      function parentUpdatesOn(
+        output: 'moveUp' | 'moveDown',
+        inputs: Record<string, boolean>,
+      ): void {
+        fixture.componentInstance[output].subscribe(() => {
+          for (const [name, value] of Object.entries(inputs)) {
+            fixture.componentRef.setInput(name, value);
+          }
+        });
+      }
+
+      it('stays on the pressed arrow while it can go on', async () => {
+        await renderInQueue(true, true);
+        parentUpdatesOn('moveUp', { canMoveUp: true, canMoveDown: true });
+
+        await click('up');
+        await fixture.whenStable();
+
+        expect(focusedLabel()).toBe(LABEL.up);
+      });
+
+      it('jumps to "down" when the item reached the top', async () => {
+        await renderInQueue(true, true);
+        parentUpdatesOn('moveUp', { canMoveUp: false, canMoveDown: true });
+
+        await click('up');
+        await fixture.whenStable();
+
+        expect(focusedLabel()).toBe(LABEL.down);
+      });
+
+      it('jumps to "up" when the item reached the bottom', async () => {
+        await renderInQueue(true, true);
+        parentUpdatesOn('moveDown', { canMoveUp: true, canMoveDown: false });
+
+        await click('down');
+        await fixture.whenStable();
+
+        expect(focusedLabel()).toBe(LABEL.up);
+      });
     });
   });
 });

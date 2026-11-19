@@ -1,4 +1,7 @@
-import { TestBed } from '@angular/core/testing';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { CdkDropList } from '@angular/cdk/drag-drop';
+import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { HarnessLoader } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonHarness } from '@angular/material/button/testing';
@@ -33,13 +36,14 @@ function seedTasks(...tasks: [title: string, state?: TaskState][]): void {
  * here we only check that everything is wired together correctly.
  */
 describe('TimerPage', () => {
+  let fixture: ComponentFixture<TimerPage>;
   let loader: HarnessLoader;
   let rootLoader: HarnessLoader; // for overlays such as dialogs
   let host: HTMLElement;
   let taskStore: TaskStore;
 
   async function render(): Promise<void> {
-    const fixture = TestBed.createComponent(TimerPage);
+    fixture = TestBed.createComponent(TimerPage);
     loader = TestbedHarnessEnvironment.loader(fixture);
     rootLoader = TestbedHarnessEnvironment.documentRootLoader(fixture);
     host = fixture.nativeElement;
@@ -67,12 +71,14 @@ describe('TimerPage', () => {
 
   /** A button inside the item with the given title, found by its aria-label. */
   function buttonIn(title: string, label: string): Promise<MatButtonHarness> {
-    const items = Array.from(host.querySelectorAll('app-task-item'));
-    const index = items.findIndex((el) => el === itemElement(title));
-    if (index === -1) throw new Error(`No task item titled "${title}"`);
+    const item = itemElement(title);
+    if (!item?.parentElement) throw new Error(`No task item titled "${title}"`);
+    // Items live in two sections; nth-of-type counts within one parent, so name the section.
+    const section = item.parentElement.classList.contains('queue') ? 'queue' : 'done-list';
+    const index = Array.from(item.parentElement.children).indexOf(item);
     return loader.getHarness(
       MatButtonHarness.with({
-        ancestor: `app-task-item:nth-of-type(${index + 1})`,
+        ancestor: `.${section} > app-task-item:nth-of-type(${index + 1})`,
         selector: `[aria-label="${label}"]`,
       }),
     );
@@ -123,7 +129,9 @@ describe('TimerPage', () => {
       await (await buttonIn('A', 'Starten')).click();
 
       expect(taskStore.activeTask()?.title).toBe('A');
-      expect(shownStatusOf('A')).toBe('Läuft');
+      // It leaves the queue and is shown in the panel instead.
+      expect(shownTitles()).toEqual([]);
+      expect(host.querySelector('app-current-panel .title')?.textContent?.trim()).toBe('A');
     });
 
     it('marks a pending task as done', async () => {
@@ -263,7 +271,7 @@ describe('TimerPage', () => {
       await (await panelButton('Pausieren')).click();
 
       expect(taskStore.tasks()[0].isPaused()).toBe(true);
-      expect(shownStatusOf('A')).toBe('Pausiert');
+      expect(host.querySelector('app-current-panel .kicker')?.textContent?.trim()).toBe('Pausiert');
       expect(await panelButton('Fortsetzen')).toBeTruthy();
     });
 
@@ -274,7 +282,7 @@ describe('TimerPage', () => {
       await (await panelButton('Fortsetzen')).click();
 
       expect(taskStore.tasks()[0].isRunning()).toBe(true);
-      expect(shownStatusOf('A')).toBe('Läuft');
+      expect(host.querySelector('app-current-panel .kicker')?.textContent?.trim()).toBe('Läuft');
     });
 
     it.each<[string, TaskState]>([
@@ -408,7 +416,7 @@ describe('TimerPage', () => {
 
       expect(await dialog.getTitleText()).toBe('Alles zurücksetzen?');
       expect(await dialog.getContentText()).toContain('Einstellungen');
-      expect(shownTitles()).toEqual(['A', 'B']); // nothing happened yet
+      expect(shownTitles()).toEqual(['B']); // nothing happened yet (A is active, in the panel)
     });
 
     it('changes nothing when cancelled', async () => {
@@ -418,7 +426,7 @@ describe('TimerPage', () => {
       await clickInDialog('Abbrechen');
       await dialogClosed();
 
-      expect(shownTitles()).toEqual(['A', 'B']);
+      expect(shownTitles()).toEqual(['B']);
       expect(taskStore.activeTask()?.title).toBe('A');
     });
 
@@ -429,7 +437,7 @@ describe('TimerPage', () => {
       await dialog.close();
       await dialogClosed();
 
-      expect(shownTitles()).toEqual(['A', 'B']);
+      expect(shownTitles()).toEqual(['B']);
     });
 
     it('resets everything when confirmed', async () => {
@@ -451,6 +459,196 @@ describe('TimerPage', () => {
           .entries()
           .map((e) => e.event),
       ).toEqual([{ type: 'app-reset' }]);
+    });
+  });
+
+  describe('sections', () => {
+    const sectionTitles = (selector: string): string[] =>
+      Array.from(host.querySelectorAll(`${selector} app-task-item .title`)).map(
+        (el) => el.textContent?.trim() ?? '',
+      );
+    const headings = (): string[] =>
+      Array.from(host.querySelectorAll('section[aria-labelledby] > h2')).map(
+        (h) => h.textContent?.trim() ?? '',
+      );
+
+    it('puts waiting tasks in the queue and done tasks below, without the active one', async () => {
+      seedTasks(
+        ['Done', { status: 'done' }],
+        ['Wait 1'],
+        ['Active', { status: 'running', endsAt: Date.now() + MINUTE }],
+        ['Wait 2'],
+      );
+      await render();
+
+      expect(headings()).toEqual(['Warteschlange (2)', 'Erledigt (1)']);
+      expect(sectionTitles('.queue')).toEqual(['Wait 1', 'Wait 2']);
+      expect(sectionTitles('.done-list')).toEqual(['Done']);
+    });
+
+    it('hides the done section while nothing is done', async () => {
+      seedTasks(['A']);
+      await render();
+
+      expect(headings()).toEqual(['Warteschlange (1)']);
+    });
+
+    it('says when the queue is empty but other tasks exist', async () => {
+      seedTasks(['Done', { status: 'done' }]);
+      await render();
+
+      expect(host.textContent).toContain('Keine wartenden Aufgaben.');
+      expect(host.textContent).not.toContain('Noch keine Aufgaben.');
+    });
+
+    it('moves a task to "Erledigt" when it is ticked off', async () => {
+      seedTasks(['A'], ['B']);
+      await render();
+
+      await (await buttonIn('A', 'Als erledigt markieren')).click();
+
+      expect(sectionTitles('.queue')).toEqual(['B']);
+      expect(sectionTitles('.done-list')).toEqual(['A']);
+    });
+
+    it('marks the sections up as lists for screen readers', async () => {
+      seedTasks(['A'], ['B', { status: 'done' }]);
+      await render();
+
+      expect(host.querySelectorAll('[role="list"]')).toHaveLength(2);
+      expect(host.querySelectorAll('[role="list"] > [role="listitem"]')).toHaveLength(2);
+    });
+  });
+
+  describe('reordering', () => {
+    const queueTitles = (): string[] =>
+      Array.from(host.querySelectorAll('.queue app-task-item .title')).map(
+        (el) => el.textContent?.trim() ?? '',
+      );
+    let announce: ReturnType<typeof vi.spyOn>;
+
+    async function renderQueue(...titles: string[]): Promise<void> {
+      seedTasks(...titles.map((t): [string] => [t]));
+      await render();
+      announce = vi.spyOn(TestBed.inject(LiveAnnouncer), 'announce').mockResolvedValue();
+    }
+
+    it('disables "up" for the first and "down" for the last task', async () => {
+      await renderQueue('A', 'B', 'C');
+
+      expect(await (await buttonIn('A', 'Nach oben verschieben')).isDisabled()).toBe(true);
+      expect(await (await buttonIn('A', 'Nach unten verschieben')).isDisabled()).toBe(false);
+      expect(await (await buttonIn('B', 'Nach oben verschieben')).isDisabled()).toBe(false);
+      expect(await (await buttonIn('C', 'Nach unten verschieben')).isDisabled()).toBe(true);
+    });
+
+    it('shows no arrows for a single waiting task', async () => {
+      await renderQueue('A');
+
+      expect(itemElement('A')?.querySelector('[aria-label="Nach oben verschieben"]')).toBeNull();
+    });
+
+    it('shows no arrows for done tasks', async () => {
+      seedTasks(['A'], ['B'], ['Done', { status: 'done' }], ['Done 2', { status: 'done' }]);
+      await render();
+
+      expect(itemElement('Done')?.querySelector('[aria-label^="Nach"]')).toBeNull();
+    });
+
+    it('moves a task down with the arrow', async () => {
+      await renderQueue('A', 'B', 'C');
+
+      await (await buttonIn('A', 'Nach unten verschieben')).click();
+
+      expect(queueTitles()).toEqual(['B', 'A', 'C']);
+      expect(taskStore.queue().map((t) => t.title)).toEqual(['B', 'A', 'C']);
+    });
+
+    it('moves a task up with the arrow', async () => {
+      await renderQueue('A', 'B', 'C');
+
+      await (await buttonIn('C', 'Nach oben verschieben')).click();
+
+      expect(queueTitles()).toEqual(['A', 'C', 'B']);
+    });
+
+    it('lets the user press the same arrow repeatedly (focus stays on it)', async () => {
+      await renderQueue('A', 'B', 'C');
+
+      await (await buttonIn('A', 'Nach unten verschieben')).click();
+      await fixture.whenStable();
+      (document.activeElement as HTMLElement).click();
+      await fixture.whenStable();
+
+      expect(queueTitles()).toEqual(['B', 'C', 'A']);
+      // A is at the bottom now, so focus moved to its "up" arrow.
+      expect(document.activeElement?.getAttribute('aria-label')).toBe('Nach oben verschieben');
+      expect(document.activeElement?.closest('app-task-item')).toBe(itemElement('A'));
+    });
+
+    it('announces the new position for screen readers', async () => {
+      await renderQueue('A', 'B', 'C');
+
+      await (await buttonIn('A', 'Nach unten verschieben')).click();
+
+      expect(announce).toHaveBeenCalledWith('„A“ auf Position 2 von 3 verschoben');
+    });
+
+    it('logs the move', async () => {
+      await renderQueue('A', 'B');
+
+      await (await buttonIn('B', 'Nach oben verschieben')).click();
+
+      expect(TestBed.inject(LogStore).entries()[0].event).toEqual({
+        type: 'task-moved',
+        title: 'B',
+        position: 1,
+      });
+    });
+
+    describe('drag and drop', () => {
+      /** Fires the CDK's drop event directly: a real pointer drag needs layout the test DOM lacks. */
+      async function drop(
+        title: string,
+        previousIndex: number,
+        currentIndex: number,
+      ): Promise<void> {
+        const task = taskStore.queue().find((t) => t.title === title);
+        fixture.debugElement
+          .query(By.directive(CdkDropList))
+          .triggerEventHandler('cdkDropListDropped', {
+            previousIndex,
+            currentIndex,
+            item: { data: task },
+          });
+        await fixture.whenStable();
+      }
+
+      it('makes every waiting task draggable by its handle', async () => {
+        await renderQueue('A', 'B');
+
+        expect(host.querySelectorAll('.queue app-task-item.cdk-drag')).toHaveLength(2);
+        expect(host.querySelectorAll('.queue .drag-handle')).toHaveLength(2);
+      });
+
+      it('moves the dropped task to the drop position', async () => {
+        await renderQueue('A', 'B', 'C', 'D');
+
+        await drop('D', 3, 1);
+
+        expect(queueTitles()).toEqual(['A', 'D', 'B', 'C']);
+        expect(announce).toHaveBeenCalledWith('„D“ auf Position 2 von 4 verschoben');
+      });
+
+      it('does nothing when dropped where it was', async () => {
+        await renderQueue('A', 'B');
+
+        await drop('A', 0, 0);
+
+        expect(queueTitles()).toEqual(['A', 'B']);
+        expect(announce).not.toHaveBeenCalled();
+        expect(TestBed.inject(LogStore).entries()).toEqual([]);
+      });
     });
   });
 });

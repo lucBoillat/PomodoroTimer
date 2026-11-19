@@ -9,3 +9,41 @@
 .danger {
   --mat-button-text-label-text-color: var(--mat-sys-error);
 }
+
+.empty {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.section {
+  margin-top: 24px;
+
+  h2 {
+    margin: 0 0 4px;
+    font: var(--mat-sys-title-medium);
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+// Drag and drop: the CDK adds these classes. The preview is a clone of the item that
+// follows the pointer; the placeholder marks where it will land.
+.cdk-drag-preview {
+  background: var(--mat-sys-surface-container-high);
+  border-radius: var(--mat-sys-corner-small);
+  box-shadow: var(--mat-sys-level3);
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.3;
+}
+
+.cdk-drag-animating,
+.queue.cdk-drop-list-dragging app-task-item:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cdk-drag-animating,
+  .queue.cdk-drop-list-dragging app-task-item:not(.cdk-drag-placeholder) {
+    transition: none;
+  }
+}

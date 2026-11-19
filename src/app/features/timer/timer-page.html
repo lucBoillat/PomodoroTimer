@@ -8,17 +8,62 @@
   (endBreak)="breakStore.end()"
 />
 <app-task-form (added)="taskStore.add($event)" />
-@for (task of taskStore.tasks(); track task.id) {
-  <app-task-item
-    [task]="task"
-    [startBlocked]="startBlocked()"
-    (start)="taskStore.start(task.id)"
-    (complete)="taskStore.complete(task.id)"
-    (remove)="taskStore.delete(task.id)"
-    (rename)="taskStore.edit(task.id, $event)"
-  />
-} @empty {
-  <p>Noch keine Aufgaben.</p>
+@if (taskStore.tasks().length === 0) {
+  <p class="empty">Noch keine Aufgaben.</p>
+} @else {
+  <!-- The active task is not listed here: the panel above shows it. -->
+  <section class="section" aria-labelledby="queue-heading">
+    <h2 id="queue-heading">Warteschlange ({{ taskStore.queue().length }})</h2>
+    @if (taskStore.queue().length > 0) {
+      <div
+        class="task-list queue"
+        role="list"
+        cdkDropList
+        cdkDropListLockAxis="y"
+        (cdkDropListDropped)="drop($event)"
+      >
+        @for (
+          task of taskStore.queue();
+          track task.id;
+          let i = $index, first = $first, last = $last
+        ) {
+          <app-task-item
+            role="listitem"
+            cdkDrag
+            [cdkDragData]="task"
+            [task]="task"
+            [startBlocked]="startBlocked()"
+            [canMoveUp]="!first"
+            [canMoveDown]="!last"
+            (moveUp)="move(task, i - 1)"
+            (moveDown)="move(task, i + 1)"
+            (start)="taskStore.start(task.id)"
+            (complete)="taskStore.complete(task.id)"
+            (remove)="taskStore.delete(task.id)"
+            (rename)="taskStore.edit(task.id, $event)"
+          />
+        }
+      </div>
+    } @else {
+      <p class="empty">Keine wartenden Aufgaben.</p>
+    }
+  </section>
+
+  @if (taskStore.doneTasks().length > 0) {
+    <section class="section" aria-labelledby="done-heading">
+      <h2 id="done-heading">Erledigt ({{ taskStore.doneTasks().length }})</h2>
+      <div class="task-list done-list" role="list">
+        @for (task of taskStore.doneTasks(); track task.id) {
+          <app-task-item
+            role="listitem"
+            [task]="task"
+            (remove)="taskStore.delete(task.id)"
+            (rename)="taskStore.edit(task.id, $event)"
+          />
+        }
+      </div>
+    </section>
+  }
 }
 
 <div class="page-actions">

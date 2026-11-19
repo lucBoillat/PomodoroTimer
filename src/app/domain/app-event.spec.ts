@@ -10,6 +10,7 @@ describe('appEventSchema', () => {
     { type: 'task-resumed', title: 'A' },
     { type: 'task-overdue', title: 'A' },
     { type: 'task-completed', title: 'A' },
+    { type: 'task-moved', title: 'A', position: 1 },
     { type: 'break-started', kind: 'short' },
     { type: 'break-over', kind: 'long' },
     { type: 'break-ended', kind: 'short' },
@@ -32,6 +33,7 @@ describe('appEventSchema', () => {
     ['a half edit', { type: 'task-edited', from: 'A' }],
     ['invalid settings', { type: 'settings-changed', settings: { pomodoroMinutes: 0 } }],
     ['a negative count', { type: 'sample-data-loaded', count: -1 }],
+    ['position 0 (positions are 1-based)', { type: 'task-moved', title: 'A', position: 0 }],
     ['null', null],
     ['a string', 'task-added'],
   ])('rejects %s', (_label, input) => {

@@ -1,3 +1,5 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { type CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { Component, computed, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -5,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { firstValueFrom } from 'rxjs';
 import { Clock } from '../../core/clock';
 import { ConfirmDialog, type ConfirmDialogData } from '../../shared/confirm-dialog';
+import type { Task } from '../../domain/task';
 import { AppReset } from '../app-reset';
 import { CurrentPanel } from './current-panel';
 import { TaskForm } from './task-form';
@@ -13,7 +16,7 @@ import { BreakStore } from './break-store';
 import { TaskItem } from './task-item';
 
 @Component({
-  imports: [CurrentPanel, MatButtonModule, MatIconModule, TaskForm, TaskItem],
+  imports: [CurrentPanel, DragDropModule, MatButtonModule, MatIconModule, TaskForm, TaskItem],
   selector: 'app-timer-page',
   styleUrl: './timer-page.scss',
   templateUrl: './timer-page.html',
@@ -24,6 +27,7 @@ export class TimerPage {
   protected readonly clock = inject(Clock);
   private readonly appReset = inject(AppReset);
   private readonly dialog = inject(MatDialog);
+  private readonly announcer = inject(LiveAnnouncer);
   protected readonly startBlocked = computed(() =>
     !this.taskStore.activeTask()
       ? !this.breakStore.currentBreak()
@@ -31,6 +35,22 @@ export class TimerPage {
         : 'Pause läuft'
       : 'Eine andere Aufgabe ist aktiv',
   );
+
+  /** Used by the arrow buttons (index ± 1) and by drag and drop. */
+  protected move(task: Task, toIndex: number): void {
+    this.taskStore.move(task.id, toIndex);
+    // A screen reader user would otherwise not notice that anything moved.
+    const queue = this.taskStore.queue();
+    const position = queue.findIndex((t) => t.id === task.id) + 1;
+    void this.announcer.announce(
+      `„${task.title}“ auf Position ${position} von ${queue.length} verschoben`,
+    );
+  }
+
+  protected drop(event: CdkDragDrop<unknown, unknown, Task>): void {
+    if (event.previousIndex === event.currentIndex) return; // dropped where it was
+    this.move(event.item.data, event.currentIndex);
+  }
 
   protected pauseActive(): void {
     const task = this.taskStore.activeTask();

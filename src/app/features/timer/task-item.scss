@@ -59,3 +59,11 @@
     min-width: 0;
   }
 }
+
+.drag-handle {
+  flex-shrink: 0;
+  margin-left: -8px; // sits in the row's left padding
+  color: var(--mat-sys-on-surface-variant);
+  cursor: grab;
+  touch-action: none; // lets the CDK handle touch drags instead of the browser scrolling
+}

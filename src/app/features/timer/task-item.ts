@@ -1,4 +1,17 @@
-import { Component, computed, input, linkedSignal, output, signal } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  Injector,
+  input,
+  linkedSignal,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import { form, FormField, FormRoot, validateStandardSchema } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -16,6 +29,7 @@ const STATUS_LABELS: Record<TaskState['status'], string> = {
 
 @Component({
   imports: [
+    DragDropModule,
     FormField,
     FormRoot,
     MatButtonModule,
@@ -41,6 +55,19 @@ export class TaskItem {
   readonly remove = output<void>();
   readonly rename = output<string>();
 
+  // Reordering: the page knows the queue, so it says which directions are possible.
+  readonly canMoveUp = input(false);
+  readonly canMoveDown = input(false);
+  readonly moveUp = output<void>();
+  readonly moveDown = output<void>();
+
+  /** Only items that can move at all get the drag handle and the arrows. */
+  protected readonly reorderable = computed(() => this.canMoveUp() || this.canMoveDown());
+
+  private readonly injector = inject(Injector);
+  private readonly upButton = viewChild('upButton', { read: ElementRef<HTMLButtonElement> });
+  private readonly downButton = viewChild('downButton', { read: ElementRef<HTMLButtonElement> });
+
   protected readonly statusLabel = computed(() => STATUS_LABELS[this.task().state.status]);
 
   protected readonly editing = signal(false);
@@ -63,6 +90,24 @@ export class TaskItem {
       },
     },
   );
+
+  /**
+   * Emits the move and keeps the keyboard focus on an arrow afterwards, so the user can
+   * press again. Needed because the list re-renders (the DOM node may be moved, which
+   * drops focus) and because at the top/bottom the pressed arrow becomes disabled.
+   */
+  protected move(direction: 'up' | 'down'): void {
+    (direction === 'up' ? this.moveUp : this.moveDown).emit();
+    afterNextRender(
+      () => {
+        const canGoOn = direction === 'up' ? this.canMoveUp() : this.canMoveDown();
+        const same = direction === 'up' ? this.upButton() : this.downButton();
+        const other = direction === 'up' ? this.downButton() : this.upButton();
+        (canGoOn ? same : other)?.nativeElement.focus();
+      },
+      { injector: this.injector },
+    );
+  }
 
   protected startEditing(): void {
     this.editForm().reset({ title: this.task().title });

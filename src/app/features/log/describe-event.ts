@@ -26,6 +26,8 @@ export function describeEvent(event: AppEvent): string {
       return `Zeit für „${event.title}“ abgelaufen`;
     case 'task-completed':
       return `Aufgabe „${event.title}“ erledigt`;
+    case 'task-moved':
+      return `Aufgabe „${event.title}“ auf Position ${event.position} verschoben`;
     case 'break-started':
       return `${BREAK_NAMES[event.kind]} gestartet`;
     case 'break-over':
@@ -58,6 +60,7 @@ export const EVENT_ICONS: Record<AppEventType, string> = {
   'task-resumed': 'play_arrow',
   'task-overdue': 'alarm',
   'task-completed': 'check',
+  'task-moved': 'swap_vert',
   'break-started': 'coffee',
   'break-over': 'alarm',
   'break-ended': 'coffee',

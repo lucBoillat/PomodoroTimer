@@ -829,4 +829,147 @@ describe('TaskStore', () => {
       expect(TestBed.inject(BreakStore).currentBreak()).not.toBeNull();
     });
   });
+
+  describe('queue and doneTasks', () => {
+    it('splits the tasks into waiting and done, without the active one', () => {
+      seed(
+        rawTask('Done 1', { status: 'done' }),
+        rawTask('Wait 1'),
+        rawTask('Active', { status: 'running', endsAt: NOW + MINUTE }),
+        rawTask('Wait 2'),
+        rawTask('Done 2', { status: 'done' }),
+      );
+      const store = createStore();
+
+      expect(store.queue().map((t) => t.title)).toEqual(['Wait 1', 'Wait 2']);
+      expect(store.doneTasks().map((t) => t.title)).toEqual(['Done 1', 'Done 2']);
+    });
+
+    it('follows changes', () => {
+      seed(rawTask('A'), rawTask('B'));
+      const store = createStore();
+
+      store.complete(byTitle(store, 'A').id);
+
+      expect(store.queue().map((t) => t.title)).toEqual(['B']);
+      expect(store.doneTasks().map((t) => t.title)).toEqual(['A']);
+    });
+  });
+
+  describe('move', () => {
+    const titles = (store: TaskStore): string[] => store.queue().map((t) => t.title);
+
+    function storeWith(...names: string[]): TaskStore {
+      seed(...names.map((n) => rawTask(n)));
+      return createStore();
+    }
+
+    it('moves a task down', () => {
+      const store = storeWith('A', 'B', 'C');
+
+      store.move(byTitle(store, 'A').id, 2);
+
+      expect(titles(store)).toEqual(['B', 'C', 'A']);
+    });
+
+    it('moves a task up', () => {
+      const store = storeWith('A', 'B', 'C');
+
+      store.move(byTitle(store, 'C').id, 0);
+
+      expect(titles(store)).toEqual(['C', 'A', 'B']);
+    });
+
+    it('swaps neighbours (what the arrow buttons do)', () => {
+      const store = storeWith('A', 'B', 'C');
+
+      store.move(byTitle(store, 'B').id, 0);
+
+      expect(titles(store)).toEqual(['B', 'A', 'C']);
+    });
+
+    it.each([
+      ['above the top', -1, ['A', 'B', 'C']],
+      ['below the bottom', 99, ['B', 'C', 'A']],
+    ])('clamps a target %s', (_label, to, expected) => {
+      const store = storeWith('A', 'B', 'C');
+
+      store.move(byTitle(store, 'A').id, to);
+
+      expect(titles(store)).toEqual(expected);
+    });
+
+    it.each([NaN, 1.5, Infinity])('rejects a target index of %s', (to) => {
+      const store = storeWith('A', 'B');
+
+      expect(() => store.move(byTitle(store, 'A').id, to)).toThrow(/integer/);
+      expect(titles(store)).toEqual(['A', 'B']);
+    });
+
+    it('keeps active and done tasks in their stored places', () => {
+      seed(
+        rawTask('A'),
+        rawTask('Done', { status: 'done' }),
+        rawTask('B'),
+        rawTask('Active', { status: 'running', endsAt: NOW + MINUTE }),
+        rawTask('C'),
+      );
+      const store = createStore();
+
+      store.move(byTitle(store, 'C').id, 0);
+
+      expect(store.tasks().map((t) => t.title)).toEqual(['C', 'Done', 'A', 'Active', 'B']);
+    });
+
+    it.each<[string, TaskState]>([
+      ['running', { status: 'running', endsAt: NOW + MINUTE }],
+      ['paused', { status: 'paused', remainingMs: MINUTE }],
+      ['done', { status: 'done' }],
+    ])('refuses to move a %s task', (_label, state) => {
+      seed(rawTask('A'), rawTask('X', state));
+      const store = createStore();
+
+      expect(() => store.move(byTitle(store, 'X').id, 0)).toThrow(InvalidTransitionError);
+    });
+
+    it('ignores an unknown id', () => {
+      const store = storeWith('A', 'B');
+
+      store.move('nope', 0);
+
+      expect(titles(store)).toEqual(['A', 'B']);
+    });
+
+    it('is saved', () => {
+      const store = storeWith('A', 'B');
+
+      store.move(byTitle(store, 'B').id, 0);
+      TestBed.tick();
+
+      expect((stored() as TaskProps[]).map((t) => t.title)).toEqual(['B', 'A']);
+    });
+
+    it('emits task-moved with the new 1-based position', () => {
+      const store = storeWith('A', 'B', 'C');
+      const events: AppEvent[] = [];
+      TestBed.inject(EventBus).on((e) => events.push(e));
+
+      store.move(byTitle(store, 'A').id, 1);
+
+      expect(events).toEqual([{ type: 'task-moved', title: 'A', position: 2 }]);
+    });
+
+    it('does nothing and emits nothing when the position does not change', () => {
+      const store = storeWith('A', 'B');
+      const before = store.tasks();
+      const events: AppEvent[] = [];
+      TestBed.inject(EventBus).on((e) => events.push(e));
+
+      store.move(byTitle(store, 'A').id, 0);
+      store.move(byTitle(store, 'B').id, 5); // clamped to where it already is
+
+      expect(store.tasks()).toBe(before);
+      expect(events).toEqual([]);
+    });
+  });
 });

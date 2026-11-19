@@ -21,10 +21,38 @@
     </button>
   </form>
 } @else {
+  @if (reorderable()) {
+    <!-- Mouse/touch only; keyboard users have the arrows below. -->
+    <mat-icon class="drag-handle" cdkDragHandle aria-hidden="true">drag_indicator</mat-icon>
+  }
   <span class="title">{{ task().title }}</span>
   <span class="status" [attr.data-status]="task().state.status">{{ statusLabel() }}</span>
 
   <span class="actions">
+    @if (reorderable()) {
+      <button
+        #upButton
+        mat-icon-button
+        type="button"
+        aria-label="Nach oben verschieben"
+        matTooltip="Nach oben verschieben"
+        [disabled]="!canMoveUp()"
+        (click)="move('up')"
+      >
+        <mat-icon>arrow_upward</mat-icon>
+      </button>
+      <button
+        #downButton
+        mat-icon-button
+        type="button"
+        aria-label="Nach unten verschieben"
+        matTooltip="Nach unten verschieben"
+        [disabled]="!canMoveDown()"
+        (click)="move('down')"
+      >
+        <mat-icon>arrow_downward</mat-icon>
+      </button>
+    }
     @if (task().isPending()) {
       <span [matTooltip]="startBlocked() ?? 'Starten'">
         <button

@@ -17,6 +17,9 @@ export class TaskStore {
   readonly activeTask = computed(
     () => this.tasks().find((t) => t.isRunning() || t.isPaused()) ?? null,
   );
+  /** The waiting tasks, in the order they will be worked on. Only these can be reordered. */
+  readonly queue = computed(() => this.tasks().filter((t) => t.isPending()));
+  readonly doneTasks = computed(() => this.tasks().filter((t) => t.isDone()));
 
   constructor() {
     effect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(this.tasks())));
@@ -41,6 +44,32 @@ export class TaskStore {
   /** Back to an empty list. No events: AppReset reports the reset as a whole. */
   reset(): void {
     this.state.set([]);
+  }
+
+  /**
+   * Moves a waiting task to `toIndex` within the queue (clamped to its ends).
+   * Active and done tasks keep their places in the stored list.
+   */
+  move(id: string, toIndex: number): void {
+    if (!Number.isInteger(toIndex)) {
+      throw new Error(`Target index must be an integer, got ${toIndex}`);
+    }
+    const task = this.state().find((t) => t.id === id);
+    if (!task) return;
+    if (!task.isPending()) throw new InvalidTransitionError('move', task.state.status);
+
+    const queue = this.queue();
+    const from = queue.indexOf(task);
+    const to = Math.min(Math.max(toIndex, 0), queue.length - 1);
+    if (from === to) return;
+
+    const reordered = [...queue];
+    reordered.splice(from, 1);
+    reordered.splice(to, 0, task);
+    // Refill the pending slots in the new order; every other task stays where it was.
+    let next = 0;
+    this.state.update((tasks) => tasks.map((t) => (t.isPending() ? reordered[next++] : t)));
+    this.events.emit({ type: 'task-moved', title: task.title, position: to + 1 });
   }
 
   delete(id: string): void {

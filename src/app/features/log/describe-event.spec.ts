@@ -11,6 +11,7 @@ describe('describeEvent', () => {
     [{ type: 'task-resumed', title: 'A' }, 'Aufgabe „A“ fortgesetzt'],
     [{ type: 'task-overdue', title: 'A' }, 'Zeit für „A“ abgelaufen'],
     [{ type: 'task-completed', title: 'A' }, 'Aufgabe „A“ erledigt'],
+    [{ type: 'task-moved', title: 'A', position: 2 }, 'Aufgabe „A“ auf Position 2 verschoben'],
     [{ type: 'break-started', kind: 'short' }, 'Kurze Pause gestartet'],
     [{ type: 'break-started', kind: 'long' }, 'Lange Pause gestartet'],
     [{ type: 'break-over', kind: 'short' }, 'Kurze Pause vorbei'],
